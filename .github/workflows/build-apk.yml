@@ -18,8 +18,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: glucolens-mobile/package-lock.json
+          # cache disabled - no lockfile
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -32,7 +31,7 @@ jobs:
 
       - name: Install mobile dependencies
         working-directory: glucolens-mobile
-        run: npm ci
+        run: npm install
 
       - name: Create .env for build
         working-directory: glucolens-mobile
