@@ -1,7 +1,7 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch: # Manual trigger from GitHub UI
+  workflow_dispatch:
   push:
     branches: [main]
 
@@ -18,7 +18,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          # cache disabled - no lockfile
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -36,11 +35,13 @@ jobs:
       - name: Create .env for build
         working-directory: glucolens-mobile
         run: |
-          cat > .env << 'EOF'
-          EXPO_PUBLIC_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
-          EXPO_PUBLIC_API_URL=${{ secrets.API_URL }}
-          EOF
+          echo "EXPO_PUBLIC_SUPABASE_URL=$SUPABASE_URL" > .env
+          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
+          echo "EXPO_PUBLIC_API_URL=$API_URL" >> .env
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          API_URL: ${{ secrets.API_URL }}
 
       - name: Generate native Android project
         working-directory: glucolens-mobile
@@ -49,10 +50,16 @@ jobs:
       - name: Install Android dependencies
         working-directory: glucolens-mobile/android
         run: |
-          # Accept all licenses
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-          npm run build --debug
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          chmod +x gradlew
 
-      - name: Upload APK to Railway
-        run: |
-          curl -X POST $JIANU‚ ÁÀ`BáˆˆÈ˜[YNˆÜ[Û˜[H\ØYÈ\\ÝšX][Û‚ˆYŽˆ˜[ÙBˆ\Ù\ÎˆÜ[Û˜[\ØY\ˆÝ\‚
+      - name: Build APK
+        working-directory: glucolens-mobile/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GlucoLens-APK
+          path: glucolens-mobile/android/app/build/outputs/apk/release/*.apk
+          retention-days: 30
