@@ -1,6 +1,5 @@
-const { getDefaultConfig } = require('@metro-bundler/metro/config');
+const { getDefaultConfig } = require("expo/metro-config");
 
-/** @type {import('@metro-bundler/metro/config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
 module.exports = config;
