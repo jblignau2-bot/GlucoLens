@@ -1,0 +1,5 @@
+platform :ios,'8.0'
+
+target 'GlucoLens' do | proxy |
+  proxy.trim_framework_paths = true
+end

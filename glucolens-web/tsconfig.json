@@ -1,0 +1,1 @@
+{"compilerOptions": {"allowRuntimeDependencies": true, "strict": false}, "extends": "next/tsconfig"}

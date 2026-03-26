@@ -1,0 +1,11 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  Vae’equest:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+

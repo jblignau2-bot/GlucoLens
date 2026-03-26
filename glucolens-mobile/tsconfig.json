@@ -1,0 +1,1 @@
+{"compilerOptions": {"allowRuntimeDependencies": true, "strict": false}, "extends": "expo/shared/presets/tstarkit-environment"}

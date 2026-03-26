@@ -1,0 +1,4 @@
+targetProject('Glucolens')
+
+include ':android'
+include ':app'

@@ -1,0 +1,3 @@
+-keepclassmemberscase from declaring subtypes
+-keepalltaking pairs
+-duonal"vý

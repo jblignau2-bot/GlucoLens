@@ -1,0 +1,5 @@
+name: Build Web App
+
+on:
+  workflow_schedule:
+    - cron: 0 
