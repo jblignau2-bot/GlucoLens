@@ -51,4 +51,16 @@ jobs:
         working-directory: glucolens-mobile/android
         run: |
           # Accept all licenses
-          yes | $A8DNDROIDSHEMD/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          chmod +x gradlew
+
+      - name: Build APK
+        working-directory: glucolens-mobile/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GlucoLens-APK
+          path: glucolens-mobile/android/app/build/outputs/apk/release/*.apk
+          retention-days: 30
