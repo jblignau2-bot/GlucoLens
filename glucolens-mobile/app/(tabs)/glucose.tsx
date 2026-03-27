@@ -1,11 +1,11 @@
 /**
- * Glucose tab
+ * Glucose Tracker screen
  *
- * Displays a grid of recent blood sugar readings, recent meals, and motivational cards. Allows logging a new reading, eviewing details, eviewing a specific card, and navigating to scan. Readings are color-coded as safe / moderate / risky.
- * 
- * Tabs in the bottom of the app are:
- *   - Glucose Tab (home page)
- *   - Scan / Analytics (part of bottom tab bar)
- *   
- *  Buttons at footer of screen vary based on tab context.
+ * Dual functionality:
+ *  1. Blood Glucose Log — manual BGL readings with timestamp, meal context, notes
+   2. Weight Log          — bodyweight entries over time
+ *
+ * Charts rendered with Victory Native (line + scatter).
+ * Segmented tabs switch between the two trackers.
+ * Delete functionality with swipe-to-delete or long-press.
  */

@@ -1,5 +1,7 @@
-/** 
- * Profile tab
+/**
+ * User Profile screen
  *
- * Displays user profile, preferences, health statistics, and food log export. Allows editing profile data (name, age, weight, type of diabetes). Can clear the local food log and export data as CSV or PDF. Manages reminders and can logout.
+ * Displays user info, goals, alerts, accepted disorder options.
+ * Edit form for customization.
+ * Sign out button in lower section.
  */
