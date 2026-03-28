@@ -18,10 +18,37 @@ const queryClient = new QueryClient({
 const trpcClient = createTRPCClient();
 
 // Warm up the Railway backend the instant the JS bundle loads.
-// Railway free tier sleeps after inactivity — this ping wakes it up
-// before the user finishes the auth splash, so the first real API
-// call feels instant instead of waiting 5-10s for a cold start.
+// Railway sleeps after inactivity — this ping wakes it up before
+// the user finishes the auth splash, so API calls feel instant.
 fetch(`${process.env.EXPO_PUBLIC_API_URL}/health`).catch(() => {});
+
+/**
+ * Ensure a Supabase session exists.
+ *
+ * 1. Try to reuse a persisted session (AsyncStorage).
+ * 2. If none, create a new account via signUp with a random email.
+ *    Anonymous sign-ins are disabled on this Supabase project, so we
+ *    generate a device-specific email+password pair instead.
+ *    Email confirmation is disabled, so signUp returns a valid JWT
+ *    immediately, and the session is auto-persisted for next launch.
+ */
+async function ensureSession(): Promise<void> {
+  // 1️⃣ Check for an existing (persisted) session
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (session) return; // already authenticated
+
+  // 2️⃣ No session — create a new device account
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  const email = `device_${id}@glucolens.app`;
+  const password = `GL!${id}`;
+
+  const { error } = await supabase.auth.signUp({ email, password });
+  if (error) {
+    console.warn("[auth] signUp failed:", error.message);
+  }
+}
 
 export default function RootLayout() {
   // Block children from rendering until we have a confirmed Supabase
@@ -30,16 +57,7 @@ export default function RootLayout() {
   const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        const { error } = await supabase.auth.signInAnonymously();
-        if (error) console.warn("[auth] anonymous sign-in failed:", error.message);
-      }
-      setAuthReady(true);
-    })();
+    ensureSession().finally(() => setAuthReady(true));
   }, []);
 
   if (!authReady) {
