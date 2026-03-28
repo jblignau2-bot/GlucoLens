@@ -26,14 +26,10 @@ import { useProfileStore } from "@/stores/profileStore";
 import { useAnalysisStore } from "@/stores/analysisStore";
 import { colors, radius, shadow } from "@/constants/tokens";
 import {
-  Utensils,
   Flame,
-  Droplets,
   ChevronRight,
   Camera,
-  Wheat,
   Ribbon,
-  Clock,
 } from "lucide-react-native";
 import { format, startOfDay, endOfDay } from "date-fns";
 
@@ -87,40 +83,29 @@ function SummaryStat({ label, value, max, unit, barColor }: SummaryStatProps) {
   const pct = Math.min(Math.round((value / Math.max(max, 1)) * 100), 100);
   return (
     <View style={{ flex: 1, alignItems: "center" }}>
+      {/* Solid green pill label */}
       <View
         style={{
-          backgroundColor: `${barColor}25`,
-          paddingHorizontal: 14,
-          paddingVertical: 6,
+          backgroundColor: colors.safe,
+          paddingHorizontal: 12,
+          paddingVertical: 5,
           borderRadius: 20,
           marginBottom: 10,
         }}
       >
-        <Text
-          style={{
-            fontSize: 12,
-            fontWeight: "700",
-            color: barColor,
-          }}
-        >
+        <Text style={{ fontSize: 11, fontWeight: "700", color: "#fff" }}>
           {label}
         </Text>
       </View>
 
-      <Text
-        style={{
-          fontSize: 16,
-          fontWeight: "800",
-          color: colors.textPrimary,
-        }}
-      >
+      <Text style={{ fontSize: 16, fontWeight: "800", color: colors.textPrimary }}>
         {Math.round(value)}
-        <Text style={{ fontWeight: "400", color: colors.textSecondary, fontSize: 12 }}>
-          {" "}/ {max} {unit}
+        <Text style={{ fontWeight: "400", color: colors.textSecondary, fontSize: 11 }}>
+          {" "}/ {max}{unit}
         </Text>
       </Text>
 
-      {/* Progress bar */}
+      {/* Progress bar — always green */}
       <View
         style={{
           width: "85%",
@@ -135,24 +120,42 @@ function SummaryStat({ label, value, max, unit, barColor }: SummaryStatProps) {
           style={{
             width: `${pct}%`,
             height: "100%",
-            backgroundColor: barColor,
+            backgroundColor: colors.safe,
             borderRadius: 3,
           }}
         />
       </View>
 
-      <Text
-        style={{
-          fontSize: 12,
-          fontWeight: "600",
-          color: colors.textSecondary,
-          marginTop: 4,
-        }}
-      >
+      <Text style={{ fontSize: 12, fontWeight: "600", color: colors.textSecondary, marginTop: 4 }}>
         {pct}%
       </Text>
     </View>
   );
+}
+
+// ─── Food emoji helper ────────────────────────────────────────────────────────
+
+function getFoodEmoji(name: string): string {
+  const n = name.toLowerCase();
+  if (/salad|greens|lettuce|spinach/.test(n)) return "🥗";
+  if (/wrap|burrito|taco|tortilla/.test(n)) return "🌯";
+  if (/rice|pilaf|risotto/.test(n)) return "🍚";
+  if (/pasta|spaghetti|noodle|linguine/.test(n)) return "🍝";
+  if (/chicken|poultry|turkey/.test(n)) return "🍗";
+  if (/beef|steak|burger/.test(n)) return "🥩";
+  if (/fish|salmon|tuna|seafood|prawn/.test(n)) return "🐟";
+  if (/egg|omelette|frittata/.test(n)) return "🍳";
+  if (/soup|stew|broth/.test(n)) return "🍲";
+  if (/sandwich|toast|bread/.test(n)) return "🥪";
+  if (/pizza/.test(n)) return "🍕";
+  if (/sushi|roll/.test(n)) return "🍱";
+  if (/fruit|apple|banana|berry|mango/.test(n)) return "🍎";
+  if (/smoothie|juice|shake|drink/.test(n)) return "🥤";
+  if (/yogurt|oats|cereal|porridge/.test(n)) return "🥣";
+  if (/curry|dal|lentil/.test(n)) return "🍛";
+  if (/snack|nut|almond|cashew/.test(n)) return "🥜";
+  if (/sweet|cake|dessert|chocolate|cookie/.test(n)) return "🍰";
+  return "🍽️";
 }
 
 // ─── Recent meal card (horizontal carousel) ──────────────────────────────────
@@ -192,7 +195,7 @@ function RecentMealCard({ meal, diabetesType, onPress }: RecentMealCardProps) {
         ...shadow.card,
       })}
     >
-      {/* Thumbnail area */}
+      {/* Thumbnail area — food emoji on rating-tinted background */}
       <View
         style={{
           height: 100,
@@ -201,7 +204,7 @@ function RecentMealCard({ meal, diabetesType, onPress }: RecentMealCardProps) {
           justifyContent: "center",
         }}
       >
-        <Utensils size={32} color={col} />
+        <Text style={{ fontSize: 48 }}>{getFoodEmoji(meal.mealName)}</Text>
       </View>
 
       {/* Info */}
@@ -351,7 +354,7 @@ export default function DashboardScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header with GlucoLens branding ── */}
+        {/* ─�  Header with GlucoLens branding ── */}
         <View
           style={{
             paddingTop: insets.top + 12,
@@ -362,16 +365,16 @@ export default function DashboardScreen() {
           {/* App name */}
           <Text
             style={{
-              fontSize: 14,
-              fontWeight: "600",
-              color: colors.primary,
+              fontSize: 15,
+              fontWeight: "700",
+              color: colors.textPrimary,
               textAlign: "center",
               marginBottom: 16,
-              letterSpacing: 1,
+              letterSpacing: 0.5,
             }}
           >
             Gluco
-            <Text style={{ color: colors.textPrimary }}>Lens</Text>
+            <Text style={{ color: colors.primary }}>Lens</Text>
           </Text>
 
           {/* Greeting row */}
@@ -441,29 +444,17 @@ export default function DashboardScreen() {
                 value={totalCalories}
                 max={maxCalories}
                 unit="kcal"
-                barColor={colors.primary}
+                barColor={colors.safe}
               />
-              <View
-                style={{
-                  width: 1,
-                  backgroundColor: colors.border,
-                  marginVertical: 8,
-                }}
-              />
+              <View style={{ width: 1, backgroundColor: colors.border, marginVertical: 8 }} />
               <SummaryStat
                 label="Sugar"
                 value={totalSugar}
                 max={maxSugar}
                 unit="g"
-                barColor={colors.moderate}
+                barColor={colors.safe}
               />
-              <View
-                style={{
-                  width: 1,
-                  backgroundColor: colors.border,
-                  marginVertical: 8,
-                }}
-              />
+              <View style={{ width: 1, backgroundColor: colors.border, marginVertical: 8 }} />
               <SummaryStat
                 label="Carbs"
                 value={totalCarbs}
@@ -477,33 +468,48 @@ export default function DashboardScreen() {
 
         {/* ── Scan Your Food CTA ── */}
         <View style={{ alignItems: "center", marginBottom: 28 }}>
-          <Pressable
-            onPress={() => router.push("/(tabs)/scan")}
-            style={({ pressed }) => ({
-              width: 110,
-              height: 110,
-              borderRadius: 55,
-              backgroundColor: colors.primaryLight,
+          {/* Outer glow ring */}
+          <View
+            style={{
+              width: 140,
+              height: 140,
+              borderRadius: 70,
               alignItems: "center",
               justifyContent: "center",
-              borderWidth: 3,
-              borderColor: colors.primary,
-              opacity: pressed ? 0.85 : 1,
-              shadowColor: colors.primary,
+              backgroundColor: `${colors.safe}18`,
+              shadowColor: colors.safe,
               shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: 0.4,
-              shadowRadius: 20,
-              elevation: 8,
-            })}
+              shadowOpacity: 0.5,
+              shadowRadius: 30,
+              elevation: 12,
+            }}
           >
-            <Camera size={40} color={colors.primary} />
-          </Pressable>
+            <Pressable
+              onPress={() => router.push("/(tabs)/scan")}
+              style={({ pressed }) => ({
+                width: 112,
+                height: 112,
+                borderRadius: 56,
+                backgroundColor: colors.safe,
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: pressed ? 0.85 : 1,
+                shadowColor: colors.safe,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.7,
+                shadowRadius: 20,
+                elevation: 10,
+              })}
+            >
+              <Camera size={44} color="#fff" strokeWidth={1.8} />
+            </Pressable>
+          </View>
           <Text
             style={{
               fontSize: 16,
               fontWeight: "700",
               color: colors.textPrimary,
-              marginTop: 12,
+              marginTop: 10,
             }}
           >
             Scan Your Food

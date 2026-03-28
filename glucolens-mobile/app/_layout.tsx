@@ -6,6 +6,8 @@ import { StatusBar } from "expo-status-bar";
 import Toast from "react-native-toast-message";
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { colors } from "@/constants/tokens";
+import { useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -15,6 +17,19 @@ const queryClient = new QueryClient({
 const trpcClient = createTRPCClient();
 
 export default function RootLayout() {
+  // Ensure a Supabase session exists so all protected API calls work.
+  // If the user has never signed in we create an anonymous session.
+  // This runs once on mount; subsequent launches reuse the persisted session.
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        const { error } = await supabase.auth.signInAnonymously();
+        if (error) console.warn("[auth] anonymous sign-in failed:", error.message);
+      }
+    })();
+  }, []);
+
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
