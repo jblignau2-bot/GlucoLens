@@ -184,3 +184,372 @@ function PhotoPanel({ onAnalyse, loading }: { onAnalyse: (base64: string) => voi
       onAnalyse(result.assets[0].base64);
     }
   };
+
+  return (
+    <View style={{ paddingHorizontal: 20, paddingTop: 24, alignItems: "center" }}>
+      <View style={{
+        width: "100%",
+        height: 260,
+        borderRadius: radius.xl,
+        backgroundColor: colors.card,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        borderStyle: "dashed",
+        overflow: "hidden",
+        ...shadow.card,
+      }}>
+        {preview ? (
+          <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.primaryLight, alignItems: "center", justifyContent: "center" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Check size={18} color={colors.primary} />
+              <Text style={{ fontSize: 13, color: colors.primary, fontWeight: "600" }}>Image selected</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={{ alignItems: "center", gap: 12 }}>
+            <View style={{
+              width: 64, height: 64, borderRadius: 20,
+              backgroundColor: colors.primaryLight,
+              alignItems: "center", justifyContent: "center",
+            }}>
+              <CameraIcon size={28} color={colors.primary} />
+            </View>
+            <Text style={{ fontSize: 15, fontWeight: "700", color: colors.textPrimary }}>
+              Point at your meal
+            </Text>
+            <Text style={{ fontSize: 13, color: colors.textSecondary, textAlign: "center", lineHeight: 18 }}>
+              Take a photo or upload from your gallery
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <View style={{ flexDirection: "row", gap: 12, marginTop: 16, width: "100%" }}>
+        <Pressable
+          onPress={takePhoto}
+          disabled={loading}
+          style={({ pressed }) => ({
+            flex: 1, height: 50, borderRadius: radius.lg,
+            backgroundColor: colors.primary,
+            alignItems: "center", justifyContent: "center",
+            flexDirection: "row", gap: 8,
+            opacity: pressed || loading ? 0.7 : 1,
+            ...shadow.button,
+          })}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <>
+              <CameraIcon size={16} color="#fff" />
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Camera</Text>
+            </>
+          )}
+        </Pressable>
+
+        <Pressable
+          onPress={pickImage}
+          disabled={loading}
+          style={({ pressed }) => ({
+            flex: 1, height: 50, borderRadius: radius.lg,
+            backgroundColor: colors.card,
+            alignItems: "center", justifyContent: "center",
+            flexDirection: "row", gap: 8,
+            borderWidth: 1.5, borderColor: colors.primary,
+            opacity: pressed || loading ? 0.7 : 1,
+          })}
+        >
+          <ImageIcon size={16} color={colors.primary} />
+          <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 14 }}>Gallery</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+// ─── Barcode panel ───────────────────────────────────────────────────────────
+
+function BarcodePanel({ onAnalyse, loading }: { onAnalyse: (barcode: string) => void; loading: boolean }) {
+  const [scanned, setScanned] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+
+  if (!permission) {
+    return <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />;
+  }
+
+  if (!permission.granted) {
+    return (
+      <View style={{ paddingHorizontal: 20, paddingTop: 40, alignItems: "center", gap: 16 }}>
+        <AlertCircle size={40} color={colors.primary} />
+        <Text style={{ fontSize: 16, fontWeight: "700", color: colors.textPrimary, textAlign: "center" }}>
+          Camera permission needed
+        </Text>
+        <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: "center" }}>
+          Allow camera access to scan barcodes on food packaging.
+        </Text>
+        <Pressable
+          onPress={requestPermission}
+          style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700" }}>Allow Camera</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ paddingHorizontal: 20, paddingTop: 24 }}>
+      <View style={{ borderRadius: radius.xl, overflow: "hidden", height: 320 }}>
+        {!scanned && !loading ? (
+          <CameraView
+            style={{ flex: 1 }}
+            facing="back"
+            barcodeScannerSettings={{ barcodeTypes: ["ean13", "ean8", "upc_a", "upc_e", "qr"] }}
+            onBarcodeScanned={({ data }) => {
+              if (scanned || loading) return;
+              setScanned(true);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              onAnalyse(data);
+            }}
+          />
+        ) : (
+          <View style={{
+            flex: 1, backgroundColor: colors.card,
+            alignItems: "center", justifyContent: "center", gap: 12,
+          }}>
+            {loading ? (
+              <>
+                <ActivityIndicator color={colors.primary} size="large" />
+                <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Looking up product</Text>
+              </>
+            ) : (
+              <>
+                <Check size={40} color={colors.primary} />
+                <Text style={{ color: colors.textPrimary, fontWeight: "700", fontSize: 15 }}>Barcode scanned</Text>
+                <Pressable
+                  onPress={() => setScanned(false)}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 }}
+                >
+                  <RefreshCw size={14} color={colors.primary} />
+                  <Text style={{ color: colors.primary, fontWeight: "600" }}>Scan another</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        )}
+      </View>
+
+      {!scanned && !loading && (
+        <View style={{ alignItems: "center", marginTop: 12 }}>
+          <Text style={{ fontSize: 13, color: colors.textSecondary, textAlign: "center" }}>
+            Align the barcode within the frame.{"\n"}Supports EAN-13, UPC-A, and more.
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── Text panel ──────────────────────────────────────────────────────────────
+
+function TextPanel({ onAnalyse, loading }: { onAnalyse: (text: string) => void; loading: boolean }) {
+  const [input, setInput] = useState("");
+  const examples = [
+    "2 slices of whole wheat toast with peanut butter",
+    "Large bowl of pasta with tomato sauce",
+    "Grilled chicken salad with avocado",
+  ];
+
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 24 }}>
+        <Text style={{ fontSize: 14, fontWeight: "600", color: colors.textSecondary, marginBottom: 8 }}>
+          Describe your meal
+        </Text>
+        <TextInput
+          value={input}
+          onChangeText={setInput}
+          placeholder="e.g. 2 scrambled eggs with toast and orange juice"
+          placeholderTextColor={colors.textSecondary}
+          multiline
+          numberOfLines={5}
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: radius.lg,
+            padding: 14,
+            fontSize: 15,
+            color: colors.textPrimary,
+            borderWidth: 1.5,
+            borderColor: input.length > 0 ? colors.primary : colors.border,
+            minHeight: 120,
+            textAlignVertical: "top",
+          }}
+        />
+
+        <Pressable
+          onPress={() => input.trim().length > 2 && onAnalyse(input.trim())}
+          disabled={loading || input.trim().length < 3}
+          style={({ pressed }) => ({
+            marginTop: 14, height: 52, borderRadius: radius.lg,
+            backgroundColor: input.trim().length > 2 ? colors.primary : colors.border,
+            alignItems: "center", justifyContent: "center",
+            flexDirection: "row", gap: 8,
+            opacity: pressed ? 0.85 : 1,
+            ...(input.trim().length > 2 && shadow.button),
+          })}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Send size={16} color="#fff" />
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Analyse Meal</Text>
+            </>
+          )}
+        </Pressable>
+
+        <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 20, marginBottom: 8, fontWeight: "600" }}>
+          Try an example:
+        </Text>
+        {examples.map((ex) => (
+          <Pressable
+            key={ex}
+            onPress={() => setInput(ex)}
+            style={({ pressed }) => ({
+              backgroundColor: colors.card,
+              borderRadius: radius.md,
+              padding: 10, marginBottom: 8,
+              borderWidth: 1, borderColor: colors.border,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Text style={{ fontSize: 13, color: colors.textPrimary }}>{ex}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+// ─── Loading overlay ─────────────────────────────────────────────────────────
+
+function AnalysingOverlay() {
+  const messages = [
+    "Identifying foods",
+    "Calculating glycaemic index",
+    "Estimating blood sugar impact",
+    "Almost there",
+  ];
+  const [idx] = useState(Math.floor(Math.random() * messages.length));
+  return (
+    <View style={{
+      position: "absolute",
+      top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: "rgba(0,0,0,0.65)",
+      alignItems: "center", justifyContent: "center",
+      zIndex: 99,
+    }}>
+      <View style={{
+        backgroundColor: colors.card,
+        borderRadius: radius.xl,
+        padding: 32, alignItems: "center", gap: 16, width: 260,
+        borderWidth: 1.5,
+        borderColor: colors.border,
+      }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ fontSize: 16, fontWeight: "700", color: colors.textPrimary, textAlign: "center" }}>
+          Analysing your meal
+        </Text>
+        <Text style={{ fontSize: 13, color: colors.textSecondary, textAlign: "center" }}>
+          {messages[idx]}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ─── Root screen ─────────────────────────────────────────────────────────────
+
+export default function ScanScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [mode, setMode] = useState<Mode>("camera");
+  const [loading, setLoading] = useState(false);
+  const setResult = useAnalysisStore((s) => s.setResult);
+  const profile = useProfileStore((s) => s.profile);
+
+  const analyseFoodMutation = trpc.food.analyze.useMutation();
+  const analyseTextMutation = trpc.food.analyzeText.useMutation();
+  const barcodeAnalyseMutation = trpc.food.analyzeBarcode.useMutation();
+
+  const handlePhotoAnalyse = async (base64: string) => {
+    setLoading(true);
+    try {
+      const raw = await analyseFoodMutation.mutateAsync({ imageBase64: base64 });
+      setResult(normaliseResult(raw) as any);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.push("/results");
+    } catch (e: any) {
+      Alert.alert("Analysis failed", e.message ?? "Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTextAnalyse = async (text: string) => {
+    setLoading(true);
+    try {
+      const raw = await analyseTextMutation.mutateAsync({ description: text });
+      setResult(normaliseResult(raw) as any);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.push("/results");
+    } catch (e: any) {
+      Alert.alert("Analysis failed", e.message ?? "Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBarcodeAnalyse = async (barcode: string) => {
+    setLoading(true);
+    try {
+      const raw = await barcodeAnalyseMutation.mutateAsync({ barcode });
+      setResult(normaliseResult(raw) as any);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.push("/results");
+    } catch (e: any) {
+      Alert.alert("Product not found", e.message ?? "Try a different product or use text mode.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {loading && <AnalysingOverlay />}
+
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={{ paddingTop: insets.top + 16, paddingHorizontal: 20, paddingBottom: 20 }}>
+          <Text style={{ fontSize: 26, fontWeight: "800", color: colors.textPrimary }}>
+            Scan Meal
+          </Text>
+          <Text style={{ fontSize: 14, color: colors.textSecondary, marginTop: 4 }}>
+            Analyse any food for blood sugar impact
+          </Text>
+        </View>
+
+        <SegmentedControl mode={mode} onChange={setMode} />
+
+        {mode === "camera"  && <PhotoPanel   onAnalyse={handlePhotoAnalyse}   loading={loading} />}
+        {mode === "barcode" && <BarcodePanel onAnalyse={handleBarcodeAnalyse} loading={loading} />}
+        {mode === "text"    && <TextPanel    onAnalyse={handleTextAnalyse}     loading={loading} />}
+      </ScrollView>
+    </View>
+  );
+}
