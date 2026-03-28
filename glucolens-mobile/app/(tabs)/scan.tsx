@@ -487,7 +487,11 @@ export default function ScanScreen() {
   const handlePhotoAnalyse = async (base64: string) => {
     setLoading(true);
     try {
-      const raw = await analyseFoodMutation.mutateAsync({ imageBase64: base64 });
+      const raw = await analyseFoodMutation.mutateAsync({
+        imageBase64: base64,
+        country: profile?.country ?? "",
+        diabetesType: profile?.diabetesType ?? "type2",
+      });
       setResult(normaliseResult(raw) as any);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.push("/results");
@@ -501,7 +505,11 @@ export default function ScanScreen() {
   const handleTextAnalyse = async (text: string) => {
     setLoading(true);
     try {
-      const raw = await analyseTextMutation.mutateAsync({ description: text });
+      const raw = await analyseTextMutation.mutateAsync({
+        description: text,
+        country: profile?.country ?? "",
+        diabetesType: profile?.diabetesType ?? "type2",
+      });
       setResult(normaliseResult(raw) as any);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.push("/results");
@@ -515,7 +523,11 @@ export default function ScanScreen() {
   const handleBarcodeAnalyse = async (barcode: string) => {
     setLoading(true);
     try {
-      const raw = await barcodeAnalyseMutation.mutateAsync({ barcode });
+      const raw = await barcodeAnalyseMutation.mutateAsync({
+        barcode,
+        country: profile?.country ?? "",
+        diabetesType: profile?.diabetesType ?? "type2",
+      });
       setResult(normaliseResult(raw) as any);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.push("/results");

@@ -1,29 +1,58 @@
 import { Tabs } from "expo-router";
-import { View } from "react-native";
+import { View, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useEffect, useRef } from "react";
 import { Home, CalendarDays, Camera, TrendingUp, User } from "lucide-react-native";
 import { colors } from "@/constants/tokens";
 
-// ── Floating Scan FAB in the centre of the tab bar with teal glow ────────────
+// ── Floating Scan FAB in the centre of the tab bar with animated teal glow ───
 function ScanTabIcon({ focused }: { focused: boolean }) {
+  const glowAnim = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, { toValue: 1, duration: 1200, useNativeDriver: false }),
+        Animated.timing(glowAnim, { toValue: 0.4, duration: 1200, useNativeDriver: false }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [glowAnim]);
+
+  const glowOpacity = glowAnim;
+  const glowRadius = glowAnim.interpolate({ inputRange: [0.4, 1], outputRange: [10, 22] });
+
   return (
-    <View
-      style={{
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: colors.primary,
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: 16,
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.6,
-        shadowRadius: 12,
-        elevation: 12,
-      }}
-    >
-      <Camera size={26} color="#fff" strokeWidth={2.5} />
+    <View style={{ alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+      {/* Outer glow ring */}
+      <Animated.View
+        style={{
+          position: "absolute",
+          width: 68,
+          height: 68,
+          borderRadius: 34,
+          backgroundColor: colors.primary,
+          opacity: glowAnim.interpolate({ inputRange: [0.4, 1], outputRange: [0.15, 0.35] }),
+        }}
+      />
+      <View
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: colors.primary,
+          alignItems: "center",
+          justifyContent: "center",
+          shadowColor: colors.primary,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.8,
+          shadowRadius: 16,
+          elevation: 16,
+        }}
+      >
+        <Camera size={26} color="#fff" strokeWidth={2.5} />
+      </View>
     </View>
   );
 }

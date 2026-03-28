@@ -425,6 +425,8 @@ export default function ProfileScreen() {
     });
   };
 
+  const exportCsvQuery = trpc.food.exportCsv.useQuery(undefined, { enabled: false });
+
   const handleExportCSV = async () => {
     setExporting(true);
     try {
@@ -433,14 +435,14 @@ export default function ProfileScreen() {
         Alert.alert("Not available", "Sharing is not available on this device.");
         return;
       }
-      // The backend returns a CSV string
-      const result = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/trpc/food.exportCsv`,
-        { headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` } }
-      );
-      const text = await result.text();
-      const path = FileSystem.cacheDirectory + "glucolens_food_log.csv";
-      await FileSystem.writeAsStringAsync(path, text, { encoding: FileSystem.EncodingType.UTF8 });
+      // Use tRPC client to fetch the CSV string (avoids raw fetch + JSON wrapping issues)
+      const { data: csvText } = await exportCsvQuery.refetch();
+      if (!csvText) {
+        Alert.alert("Export failed", "No food log data to export.");
+        return;
+      }
+      const path = (FileSystem.cacheDirectory ?? "") + "glucolens_food_log.csv";
+      await FileSystem.writeAsStringAsync(path, csvText);
       await Sharing.shareAsync(path, { mimeType: "text/csv", dialogTitle: "Export Food Log CSV" });
     } catch (e: any) {
       Alert.alert("Export failed", e.message);

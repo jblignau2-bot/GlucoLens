@@ -8,6 +8,7 @@ import { useState, useMemo, useEffect } from "react";
 import Toast from "react-native-toast-message";
 import { CameraLensLogo } from "@/components/ui/GlucoLensLogo";
 import { trpc } from "@/lib/trpc";
+import { useProfileStore } from "@/stores/profileStore";
 import { colors, radius, spacing } from "@/constants/tokens";
 import {
   User, Globe, HeartPulse, Target, CheckCircle, Syringe, Activity,
@@ -193,6 +194,7 @@ export default function Onboarding() {
     dailyCalorieGoal: 1800, maxDailySugar: 50, maxDailyCarbs: 200,
   });
 
+  const setProfile = useProfileStore((s) => s.setProfile);
   const upsertProfile = trpc.profile.upsert.useMutation();
 
   const update = (key: keyof FormData, value: any) =>
@@ -283,7 +285,7 @@ export default function Onboarding() {
       // Send "unsure" as fallback if backend doesn't support "none" yet
       const diabetesTypeToSend = form.diabetesType === "none" ? "unsure" : form.diabetesType;
 
-      await upsertProfile.mutateAsync({
+      const savedData = await upsertProfile.mutateAsync({
         firstName: form.firstName,
         lastName: form.lastName,
         country: form.country,
@@ -300,9 +302,33 @@ export default function Onboarding() {
         maxDailyCarbs: form.maxDailyCarbs,
         onboardingComplete: 1,
       });
+
+      // Persist to in-memory store so all screens have the profile immediately
+      // API now returns camelCase so we can pass it directly
+      if (savedData) {
+        setProfile(savedData as any);
+      }
     } catch (e: any) {
-      // Profile save failed (no auth yet) — that's okay for testing, continue to tabs
-      console.warn("Profile save skipped:", e.message);
+      // Profile save failed — still populate the store from form data so the
+      // app is usable even without a successful backend write
+      console.warn("Profile save failed:", e.message);
+      setProfile({
+        id: 0,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        country: form.country,
+        countryCode: form.countryCode,
+        diabetesType: (form.diabetesType === "none" ? "unsure" : form.diabetesType) as any,
+        dailyCalorieGoal: form.dailyCalorieGoal,
+        maxDailySugar: form.maxDailySugar,
+        maxDailyCarbs: form.maxDailyCarbs,
+        activityLevel: form.activityLevel as any,
+        heightCm: Number(form.heightCm),
+        weightKg: Number(form.weightKg),
+        age: Number(form.age),
+        gender: form.gender as any,
+        onboardingComplete: true,
+      } as any);
     }
     router.replace("/(tabs)");
   }

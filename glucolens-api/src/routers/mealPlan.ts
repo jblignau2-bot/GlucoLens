@@ -17,7 +17,17 @@ export const mealPlanRouter = router({
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
-      return data ?? null;
+      if (!data) return null;
+      // Map snake_case DB columns to camelCase for the frontend
+      return {
+        id: data.id,
+        userId: data.user_id,
+        weekStartDate: data.week_start_date,
+        planJson: data.plan_json,
+        dietaryRestrictions: data.dietary_restrictions,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
     }),
 
   generate: protectedProcedure
@@ -62,20 +72,15 @@ Respond ONLY with valid JSON (no markdown):
       const planData = JSON.parse(clean);
 
       // Only include columns guaranteed to exist in the table.
-      // country / diabetes_type may not exist if the migration hasn't been
-      // applied yet, so we build the row dynamically and silently omit them
-      // when the upsert fails.
+      // country, diabetes_type, and dietary_restrictions may not exist
+      // if the migration hasn't been applied yet.
       const row: Record<string, any> = {
         user_id: ctx.userId,
         week_start_date: input.weekStart,
         plan_json: JSON.stringify(planData),
-        dietary_restrictions: input.dietaryRestrictions ?? null,
         updated_at: new Date().toISOString(),
       };
 
-      // Upsert the meal plan — only include columns that exist in the table.
-      // The country / diabetes_type columns are intentionally excluded because
-      // the migration that adds them has not been applied to the production DB.
       const { data, error } = await supabase
         .from("meal_plans")
         .upsert(row, { onConflict: "user_id,week_start_date" })
@@ -83,6 +88,15 @@ Respond ONLY with valid JSON (no markdown):
         .single();
 
       if (error) throw new Error(error.message);
-      return data;
+      // Map snake_case DB columns to camelCase for the frontend
+      return {
+        id: data.id,
+        userId: data.user_id,
+        weekStartDate: data.week_start_date,
+        planJson: data.plan_json,
+        dietaryRestrictions: data.dietary_restrictions,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
     }),
 });

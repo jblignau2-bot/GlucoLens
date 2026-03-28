@@ -328,7 +328,23 @@ export default function PlannerScreen() {
   };
 
   const planData: MealPlanData | null = mealPlan?.planJson
-    ? (() => { try { return JSON.parse(mealPlan.planJson); } catch { return null; } })()
+    ? (() => {
+        try {
+          const raw = JSON.parse(mealPlan.planJson);
+          // AI returns { days: [...], weeklyTip } but UI expects { weekPlan, tips }
+          const weekPlan = (raw.weekPlan ?? raw.days ?? []).map((d: any) => ({
+            day: d.day,
+            meals: {
+              breakfast: { name: d.meals?.breakfast?.name ?? "Breakfast", calories: d.meals?.breakfast?.calories, carbs: d.meals?.breakfast?.carbs_g ?? d.meals?.breakfast?.carbs, protein: d.meals?.breakfast?.protein_g ?? d.meals?.breakfast?.protein, note: d.meals?.breakfast?.description },
+              lunch: { name: d.meals?.lunch?.name ?? "Lunch", calories: d.meals?.lunch?.calories, carbs: d.meals?.lunch?.carbs_g ?? d.meals?.lunch?.carbs, protein: d.meals?.lunch?.protein_g ?? d.meals?.lunch?.protein, note: d.meals?.lunch?.description },
+              dinner: { name: d.meals?.dinner?.name ?? "Dinner", calories: d.meals?.dinner?.calories, carbs: d.meals?.dinner?.carbs_g ?? d.meals?.dinner?.carbs, protein: d.meals?.dinner?.protein_g ?? d.meals?.dinner?.protein, note: d.meals?.dinner?.description },
+              ...(d.meals?.snack ? { snack: { name: d.meals.snack.name ?? "Snack", calories: d.meals.snack.calories, carbs: d.meals.snack.carbs_g ?? d.meals.snack.carbs, protein: d.meals.snack.protein_g ?? d.meals.snack.protein, note: d.meals.snack.description } } : {}),
+            },
+          }));
+          const tips = raw.tips ?? (raw.weeklyTip ? [raw.weeklyTip] : []);
+          return { weekPlan, tips } as MealPlanData;
+        } catch { return null; }
+      })()
     : null;
 
   const shoppingItems: ShoppingItem[] = shoppingList?.listJson
