@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useRef } from "react";
 import { Home, CalendarDays, Camera, TrendingUp, User } from "lucide-react-native";
 import { colors } from "@/constants/tokens";
+import { trpc } from "@/lib/trpc";
+import { useProfileStore } from "@/stores/profileStore";
 
 // ── Floating Scan FAB in the centre of the tab bar with animated teal glow ───
 function ScanTabIcon({ focused }: { focused: boolean }) {
@@ -59,6 +61,19 @@ function ScanTabIcon({ focused }: { focused: boolean }) {
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const setProfile = useProfileStore((s) => s.setProfile);
+  const existingProfile = useProfileStore((s) => s.profile);
+
+  // Hydrate profile store from API on mount (covers app restart)
+  const { data: profileData } = trpc.profile.get.useQuery(undefined, {
+    enabled: !existingProfile, // only fetch if store is empty
+  });
+
+  useEffect(() => {
+    if (profileData && !existingProfile) {
+      setProfile(profileData as any);
+    }
+  }, [profileData, existingProfile, setProfile]);
 
   return (
     <Tabs

@@ -13,6 +13,7 @@ import { colors, radius, spacing } from "@/constants/tokens";
 import {
   User, Globe, HeartPulse, Target, CheckCircle, Syringe, Activity,
   HelpCircle, ShieldCheck, Flame, Droplets, Wheat, ChevronRight, ChevronLeft,
+  Info, AlertTriangle,
 } from "lucide-react-native";
 
 // ─── Local goal calculation (no backend needed) ───────────────────────────────
@@ -183,6 +184,8 @@ export default function Onboarding() {
   const [calculatedGoals, setCalculatedGoals] = useState<GoalResult | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [checkingProfile, setCheckingProfile] = useState(false);
+  const [acceptedDisclaimer, setAcceptedDisclaimer] = useState(false);
+  const [disclaimerAcceptedAt, setDisclaimerAcceptedAt] = useState<string | null>(null);
 
   const [form, setForm] = useState<FormData>({
     firstName: "", lastName: "", email: "",
@@ -212,7 +215,7 @@ export default function Onboarding() {
     if (step === 2) return form.country.length > 0;
     if (step === 3) return form.heightCm.length > 0 && form.weightKg.length > 0 && form.age.length > 0 && form.gender.length > 0;
     if (step === 4) return form.diabetesType.length > 0;
-    if (step === 5) return !!calculatedGoals;
+    if (step === 5) return !!calculatedGoals && acceptedDisclaimer;
     return true;
   };
 
@@ -282,8 +285,7 @@ export default function Onboarding() {
 
   async function handleFinish() {
     try {
-      // Send "unsure" as fallback if backend doesn't support "none" yet
-      const diabetesTypeToSend = form.diabetesType === "none" ? "unsure" : form.diabetesType;
+      const diabetesTypeToSend = form.diabetesType || "type2";
 
       const savedData = await upsertProfile.mutateAsync({
         firstName: form.firstName,
@@ -294,12 +296,15 @@ export default function Onboarding() {
         heightCm: Number(form.heightCm),
         weightKg: Number(form.weightKg),
         age: Number(form.age),
-        gender: form.gender,
+        gender: form.gender as any,
         activityLevel: form.activityLevel,
-        diabetesType: diabetesTypeToSend,
+        diabetesType: diabetesTypeToSend as any,
         dailyCalorieGoal: form.dailyCalorieGoal,
         maxDailySugar: form.maxDailySugar,
         maxDailyCarbs: form.maxDailyCarbs,
+        dietaryRestrictions: disclaimerAcceptedAt
+          ? `disclaimer_accepted:${disclaimerAcceptedAt}`
+          : undefined,
         onboardingComplete: 1,
       });
 
@@ -318,7 +323,7 @@ export default function Onboarding() {
         lastName: form.lastName,
         country: form.country,
         countryCode: form.countryCode,
-        diabetesType: (form.diabetesType === "none" ? "unsure" : form.diabetesType) as any,
+        diabetesType: (form.diabetesType || "type2") as any,
         dailyCalorieGoal: form.dailyCalorieGoal,
         maxDailySugar: form.maxDailySugar,
         maxDailyCarbs: form.maxDailyCarbs,
@@ -660,12 +665,25 @@ export default function Onboarding() {
 
                 <View>
                   <Text style={labelStyle}>ACTIVITY LEVEL</Text>
+                  <View style={{
+                    backgroundColor: `${colors.primary}10`,
+                    borderWidth: 1,
+                    borderColor: `${colors.primary}30`,
+                    borderRadius: radius.md,
+                    padding: 12,
+                    marginBottom: 10,
+                  }}>
+                    <Text style={{ fontSize: 12, color: colors.textPrimary, lineHeight: 18 }}>
+                      <Text style={{ fontWeight: "700" }}>Why does this matter? </Text>
+                      Your activity level helps us calculate how many calories your body burns each day. More active people need more fuel — so we adjust your daily goals to match your lifestyle.
+                    </Text>
+                  </View>
                   <View style={{ gap: 8 }}>
                     {([
-                      { value: "sedentary", label: "Sedentary", desc: "Desk job, little exercise" },
-                      { value: "light", label: "Light Active", desc: "1–3 days/week" },
-                      { value: "moderate", label: "Moderate", desc: "3–5 days/week" },
-                      { value: "active", label: "Very Active", desc: "Daily intense exercise" },
+                      { value: "sedentary", label: "Sedentary", desc: "You sit most of the day (desk job, watching TV). Little to no exercise." },
+                      { value: "light", label: "Lightly Active", desc: "You do light exercise 1–3 days a week, like casual walks or light housework." },
+                      { value: "moderate", label: "Moderately Active", desc: "You exercise 3–5 days a week — gym sessions, jogging, cycling, or an active job." },
+                      { value: "active", label: "Very Active", desc: "You exercise hard almost every day — sports, physical labour, or intense training." },
                     ] as const).map(a => (
                       <Pressable
                         key={a.value}
@@ -781,22 +799,38 @@ export default function Onboarding() {
                   <View style={{ alignItems: "center", paddingVertical: 40, gap: 12 }}>
                     <ActivityIndicator size="large" color={colors.primary} />
                     <Text style={{ fontSize: 13, color: colors.textSecondary }}>
-                      Calculating your personalised goals...
+                      GlucoLens AI is calculating your personalised goals...
                     </Text>
                   </View>
                 ) : calculatedGoals ? (
                   <>
+                    {/* GlucoLens AI Specialist header */}
                     <View style={{
-                      backgroundColor: `${colors.primary}10`,
-                      borderWidth: 1,
-                      borderColor: `${colors.primary}30`,
+                      backgroundColor: `${colors.primary}15`,
+                      borderWidth: 1.5,
+                      borderColor: colors.primary,
                       borderRadius: radius.lg,
                       padding: 14,
                     }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                        <CheckCircle size={18} color={colors.primary} strokeWidth={2} />
-                        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textPrimary }}>
-                          AI-Calculated Daily Goals
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <View style={{
+                          width: 32, height: 32, borderRadius: 16,
+                          backgroundColor: colors.primary,
+                          alignItems: "center", justifyContent: "center",
+                        }}>
+                          <Target size={16} color="#fff" strokeWidth={2.5} />
+                        </View>
+                        <View>
+                          <Text style={{ fontSize: 14, fontWeight: "800", color: colors.primary }}>
+                            GlucoLens AI Specialist
+                          </Text>
+                          <Text style={{ fontSize: 11, color: colors.textSecondary }}>
+                            Your personalised daily targets
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textPrimary, marginBottom: 4 }}>
+                        Start your journey with GlucoLens
                         </Text>
                       </View>
                       <Text style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 18 }}>
@@ -804,6 +838,7 @@ export default function Onboarding() {
                       </Text>
                     </View>
 
+                    {/* Your Daily Goals */}
                     <View style={{ flexDirection: "row", gap: 10 }}>
                       {[
                         { Icon: Flame, value: `${calculatedGoals.dailyCalorieGoal}`, unit: "kcal/day" },
@@ -826,6 +861,35 @@ export default function Onboarding() {
                       ))}
                     </View>
 
+                    {/* What these numbers mean */}
+                    <View style={{
+                      backgroundColor: colors.background,
+                      borderWidth: 1,
+                      borderColor: `${colors.textPrimary}10`,
+                      borderRadius: radius.md,
+                      padding: 12,
+                    }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                        <Info size={14} color={colors.primary} />
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textPrimary }}>
+                          What do these numbers mean?
+                        </Text>
+                      </View>
+                      <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 17, marginBottom: 6 }}>
+                        <Text style={{ fontWeight: "700", color: colors.textPrimary }}>Calories </Text>
+                        are the energy your body gets from food. Eating too many leads to weight gain; too few and you'll feel tired. Your target is based on your height, weight, age, and activity level.
+                      </Text>
+                      <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 17, marginBottom: 6 }}>
+                        <Text style={{ fontWeight: "700", color: colors.textPrimary }}>Sugar </Text>
+                        is what spikes your blood glucose the most. Keeping daily sugar intake low is critical for managing diabetes and preventing energy crashes.
+                      </Text>
+                      <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 17 }}>
+                        <Text style={{ fontWeight: "700", color: colors.textPrimary }}>Carbs (Carbohydrates) </Text>
+                        break down into glucose in your body. Monitoring carbs helps you predict blood sugar changes and keep levels stable throughout the day.
+                      </Text>
+                    </View>
+
+                    {/* BMI section with explanation */}
                     <View style={{
                       flexDirection: "row",
                       alignItems: "center",
@@ -843,13 +907,72 @@ export default function Onboarding() {
                         <Text style={{ fontSize: 10, color: colors.textSecondary }}>BMI</Text>
                       </View>
                       <View style={{ width: 1, height: 32, backgroundColor: `${colors.textPrimary}20` }} />
-                      <View>
+                      <View style={{ flex: 1 }}>
                         <Text style={{ fontSize: 14, fontWeight: "700", color: colors.textPrimary }}>
                           {calculatedGoals.bmiCategory}
                         </Text>
-                        <Text style={{ fontSize: 11, color: colors.textSecondary }}>Body weight category</Text>
+                        <Text style={{ fontSize: 10, color: colors.textSecondary, lineHeight: 14 }}>
+                          BMI (Body Mass Index) measures if your weight is healthy for your height. It helps us set the right calorie target for you.
+                        </Text>
                       </View>
                     </View>
+
+                    {/* Disclaimer */}
+                    <View style={{
+                      backgroundColor: "#1a1a2e",
+                      borderWidth: 1.5,
+                      borderColor: "#fbbf24",
+                      borderRadius: radius.lg,
+                      padding: 14,
+                    }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <AlertTriangle size={16} color="#fbbf24" />
+                        <Text style={{ fontSize: 12, fontWeight: "800", color: "#fbbf24" }}>
+                          IMPORTANT DISCLAIMER
+                        </Text>
+                      </View>
+                      <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 17, marginBottom: 8 }}>
+                        GlucoLens was founded by Justin in South Africa, who lives with diabetes and needed an app to better understand his sugar intake for healthier daily decisions.
+                      </Text>
+                      <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 17, marginBottom: 8 }}>
+                        This app is a <Text style={{ fontWeight: "700", color: colors.textPrimary }}>tool and guide</Text> powered by sophisticated AI technology. It is designed to help you make more informed food choices — but it is <Text style={{ fontWeight: "700", color: colors.textPrimary }}>not a substitute for professional medical advice</Text>.
+                      </Text>
+                      <Text style={{ fontSize: 11, color: "#fbbf24", lineHeight: 17, fontWeight: "600" }}>
+                        Your GP or healthcare provider must be consulted at all times for medical decisions regarding your diabetes management.
+                      </Text>
+                    </View>
+
+                    {/* Accept checkbox */}
+                    <Pressable
+                      onPress={() => {
+                        const now = new Date().toISOString();
+                        setAcceptedDisclaimer(!acceptedDisclaimer);
+                        setDisclaimerAcceptedAt(acceptedDisclaimer ? null : now);
+                      }}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: 14,
+                        borderRadius: radius.lg,
+                        borderWidth: 2,
+                        borderColor: acceptedDisclaimer ? colors.primary : `${colors.textPrimary}20`,
+                        backgroundColor: acceptedDisclaimer ? `${colors.primary}10` : colors.background,
+                      }}
+                    >
+                      <View style={{
+                        width: 24, height: 24, borderRadius: 6,
+                        borderWidth: 2,
+                        borderColor: acceptedDisclaimer ? colors.primary : colors.textSecondary,
+                        backgroundColor: acceptedDisclaimer ? colors.primary : "transparent",
+                        alignItems: "center", justifyContent: "center",
+                      }}>
+                        {acceptedDisclaimer && <CheckCircle size={14} color="#fff" strokeWidth={3} />}
+                      </View>
+                      <Text style={{ flex: 1, fontSize: 12, color: colors.textPrimary, lineHeight: 17 }}>
+                        I understand that GlucoLens is an AI-powered guide and <Text style={{ fontWeight: "700" }}>not a replacement for my doctor</Text>. I will consult my GP for all medical decisions.
+                      </Text>
+                    </Pressable>
 
                     <Text style={{ textAlign: "center", fontSize: 11, color: colors.textSecondary }}>
                       You can adjust these goals anytime in your Profile settings.

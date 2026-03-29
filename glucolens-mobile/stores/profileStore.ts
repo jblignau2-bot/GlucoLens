@@ -6,7 +6,7 @@
 
 import { create } from "zustand";
 
-export type DiabetesType = "type1" | "type2" | "prediabetes";
+export type DiabetesType = "type1" | "type2" | "prediabetes" | "unsure" | "none";
 export type ActivityLevel  = "sedentary" | "light" | "moderate" | "active" | "very_active";
 
 export interface UserProfile {

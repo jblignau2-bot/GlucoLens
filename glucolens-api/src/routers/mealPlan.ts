@@ -68,8 +68,24 @@ Respond ONLY with valid JSON (no markdown):
       });
 
       const content = response.choices[0]?.message?.content ?? "{}";
-      const clean = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      const planData = JSON.parse(clean);
+      // Strip markdown fencing, leading/trailing text, and any BOM
+      let clean = content
+        .replace(/^\uFEFF/, "")
+        .replace(/```json\n?/g, "")
+        .replace(/```\n?/g, "")
+        .trim();
+      // If AI returned text before/after the JSON, extract only the JSON object
+      const firstBrace = clean.indexOf("{");
+      const lastBrace = clean.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        clean = clean.slice(firstBrace, lastBrace + 1);
+      }
+      let planData: any;
+      try {
+        planData = JSON.parse(clean);
+      } catch (parseErr: any) {
+        throw new Error("AI returned an invalid meal plan. Please try again.");
+      }
 
       // Only include columns guaranteed to exist in the table.
       // country, diabetes_type, and dietary_restrictions may not exist

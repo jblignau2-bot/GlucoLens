@@ -484,6 +484,10 @@ export default function ScanScreen() {
   const analyseTextMutation = trpc.food.analyzeText.useMutation();
   const barcodeAnalyseMutation = trpc.food.analyzeBarcode.useMutation();
 
+  const safeHaptic = () => {
+    try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+  };
+
   const handlePhotoAnalyse = async (base64: string) => {
     setLoading(true);
     try {
@@ -492,11 +496,13 @@ export default function ScanScreen() {
         country: profile?.country ?? "",
         diabetesType: profile?.diabetesType ?? "type2",
       });
-      setResult(normaliseResult(raw) as any);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const normalised = normaliseResult(raw ?? {});
+      setResult(normalised as any);
+      safeHaptic();
       router.push("/results");
     } catch (e: any) {
-      Alert.alert("Analysis failed", e.message ?? "Please try again.");
+      console.warn("[scan] photo analysis error:", e);
+      Alert.alert("Analysis failed", String(e?.message ?? "Something went wrong. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -510,11 +516,13 @@ export default function ScanScreen() {
         country: profile?.country ?? "",
         diabetesType: profile?.diabetesType ?? "type2",
       });
-      setResult(normaliseResult(raw) as any);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const normalised = normaliseResult(raw ?? {});
+      setResult(normalised as any);
+      safeHaptic();
       router.push("/results");
     } catch (e: any) {
-      Alert.alert("Analysis failed", e.message ?? "Please try again.");
+      console.warn("[scan] text analysis error:", e);
+      Alert.alert("Analysis failed", String(e?.message ?? "Something went wrong. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -528,11 +536,13 @@ export default function ScanScreen() {
         country: profile?.country ?? "",
         diabetesType: profile?.diabetesType ?? "type2",
       });
-      setResult(normaliseResult(raw) as any);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const normalised = normaliseResult(raw ?? {});
+      setResult(normalised as any);
+      safeHaptic();
       router.push("/results");
     } catch (e: any) {
-      Alert.alert("Product not found", e.message ?? "Try a different product or use text mode.");
+      console.warn("[scan] barcode analysis error:", e);
+      Alert.alert("Product not found", String(e?.message ?? "Try a different product or use text mode."));
     } finally {
       setLoading(false);
     }

@@ -46,8 +46,18 @@ Rate items based on glycemic impact, sugar content, and portion size. Be specifi
 }
 
 async function parseAnalysis(content: string) {
-  // Strip any markdown code fences if present
-  const clean = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  // Strip markdown fencing, BOM, and any text before/after the JSON
+  let clean = content
+    .replace(/^\uFEFF/, "")
+    .replace(/```json\n?/g, "")
+    .replace(/```\n?/g, "")
+    .trim();
+  // Extract only the JSON object if AI added extra text
+  const firstBrace = clean.indexOf("{");
+  const lastBrace = clean.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    clean = clean.slice(firstBrace, lastBrace + 1);
+  }
   try {
     return JSON.parse(clean);
   } catch {

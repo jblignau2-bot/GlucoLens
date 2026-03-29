@@ -121,7 +121,8 @@ const DIABETES_OPTIONS = [
   { key: "type1", label: "Type 1", desc: "Insulin-dependent" },
   { key: "type2", label: "Type 2", desc: "Non-insulin dependent" },
   { key: "prediabetes", label: "Pre-Diabetes", desc: "At-risk" },
-  { key: "unsure", label: "Not sure", desc: "Use general guidance" },
+  { key: "unsure", label: "Pre-Diabetes / Unsure", desc: "Use general guidance" },
+  { key: "none", label: "Health Conscious", desc: "No diabetes — general wellness" },
 ];
 
 const ACTIVITY_OPTIONS = [
