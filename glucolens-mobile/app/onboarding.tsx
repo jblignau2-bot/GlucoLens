@@ -831,8 +831,7 @@ export default function Onboarding() {
                       </View>
                       <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textPrimary, marginBottom: 4 }}>
                         Start your journey with GlucoLens
-                        </Text>
-                      </View>
+                      </Text>
                       <Text style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 18 }}>
                         {calculatedGoals.explanation}
                       </Text>
