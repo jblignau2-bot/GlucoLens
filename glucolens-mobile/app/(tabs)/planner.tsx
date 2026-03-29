@@ -15,11 +15,11 @@ import {
   Alert,
   FlatList,
   useWindowDimensions,
-  Animated,
+  Animated as RNAnimated,
   Share,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { useProfileStore } from "@/stores/profileStore";
 import { colors, radius, shadow } from "@/constants/tokens";
@@ -38,7 +38,6 @@ import {
   Flame,
   Wheat,
   Droplets,
-  Download,
   FileSpreadsheet,
   FileText,
   ChevronLeft,
@@ -48,8 +47,9 @@ import {
   ListOrdered,
   LayoutGrid,
   Store,
+  RotateCcw,
 } from "lucide-react-native";
-import { format, startOfWeek, addDays } from "date-fns";
+import { format, startOfWeek, addDays, parseISO } from "date-fns";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -87,6 +87,7 @@ interface DailyTotals {
 
 interface DayPlan {
   day: string;
+  date?: string; // e.g. "24 Mar"
   meals: {
     breakfast: MealItem;
     lunch: MealItem;
@@ -151,6 +152,19 @@ const MEAL_LABELS = {
   snack: "Snack",
 };
 
+const GEN_STATUSES = [
+  "Analysing your profile…",
+  "Crafting breakfast recipes…",
+  "Planning lunch menus…",
+  "Designing dinner meals…",
+  "Adding healthy snacks…",
+  "Calculating macros…",
+  "Checking ingredients…",
+  "Writing cooking instructions…",
+  "Balancing weekly nutrition…",
+  "Finalising your plan…",
+];
+
 function parseMeal(raw: any): MealItem {
   return {
     name: raw?.name ?? "Meal",
@@ -162,16 +176,19 @@ function parseMeal(raw: any): MealItem {
     sugar_g: raw?.sugar_g ?? raw?.sugar ?? 0,
     fiber_g: raw?.fiber_g ?? raw?.fiber ?? 0,
     ingredients: Array.isArray(raw?.ingredients) ? raw.ingredients : [],
-    cookingInstructions: raw?.cookingInstructions ?? raw?.cooking_instructions ?? "",
+    cookingInstructions:
+      raw?.cookingInstructions ?? raw?.cooking_instructions ?? "",
   };
 }
 
-function parsePlanJson(json: string): MealPlanData | null {
+function parsePlanJson(json: string, weekStartStr: string): MealPlanData | null {
   try {
     const raw = JSON.parse(json);
+    const weekDate = parseISO(weekStartStr);
     const daysArr = raw.weekPlan ?? raw.days ?? [];
-    const days: DayPlan[] = daysArr.map((d: any) => ({
+    const days: DayPlan[] = daysArr.map((d: any, i: number) => ({
       day: d.day ?? "Day",
+      date: format(addDays(weekDate, i), "d MMM"),
       meals: {
         breakfast: parseMeal(d.meals?.breakfast),
         lunch: parseMeal(d.meals?.lunch),
@@ -200,7 +217,179 @@ function parseShoppingJson(json: string): ShoppingListData | null {
   }
 }
 
-// ─── Progress bar ───────────────────────────────────────────────────────────
+// ─── Animated Progress Overlay ──────────────────────────────────────────────
+
+function GeneratingOverlay({ visible }: { visible: boolean }) {
+  const progressAnim = useRef(new RNAnimated.Value(0)).current;
+  const [statusIdx, setStatusIdx] = useState(0);
+  const [displayPct, setDisplayPct] = useState(0);
+
+  useEffect(() => {
+    if (visible) {
+      progressAnim.setValue(0);
+      setStatusIdx(0);
+      setDisplayPct(0);
+
+      // Animate progress: 0 → 92% over ~40 seconds (ease-out so it slows down)
+      RNAnimated.timing(progressAnim, {
+        toValue: 92,
+        duration: 40000,
+        useNativeDriver: false,
+      }).start();
+
+      // Update display percentage
+      const pctTimer = setInterval(() => {
+        progressAnim.stopAnimation?.((v) => {}); // no-op, just need the listener
+      }, 200);
+
+      const listener = progressAnim.addListener(({ value }) => {
+        setDisplayPct(Math.round(value));
+      });
+
+      // Cycle through status messages
+      const msgTimer = setInterval(() => {
+        setStatusIdx((prev) => {
+          const next = prev + 1;
+          return next < GEN_STATUSES.length ? next : prev;
+        });
+      }, 4000);
+
+      return () => {
+        clearInterval(pctTimer);
+        clearInterval(msgTimer);
+        progressAnim.removeListener(listener);
+        progressAnim.stopAnimation();
+      };
+    } else {
+      // Snap to 100% briefly
+      setDisplayPct(100);
+      progressAnim.setValue(100);
+    }
+  }, [visible]);
+
+  if (!visible && displayPct < 100) return null;
+
+  return (
+    <View
+      style={{
+        position: "absolute",
+        top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: colors.overlay,
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 100,
+      }}
+    >
+      <View
+        style={{
+          backgroundColor: colors.card,
+          borderRadius: radius.xl,
+          padding: 32,
+          width: 280,
+          alignItems: "center",
+          gap: 16,
+          ...shadow.card,
+        }}
+      >
+        <Sparkles size={32} color={colors.primary} />
+        <Text style={{ fontSize: 17, fontWeight: "800", color: colors.textPrimary }}>
+          Generating Your Plan
+        </Text>
+
+        {/* Progress bar */}
+        <View style={{ width: "100%", gap: 8 }}>
+          <View
+            style={{
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: colors.border,
+              overflow: "hidden",
+            }}
+          >
+            <RNAnimated.View
+              style={{
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: colors.primary,
+                width: progressAnim.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: ["0%", "100%"],
+                }),
+              }}
+            />
+          </View>
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <Text
+              style={{
+                fontSize: 12,
+                color: colors.textSecondary,
+                flex: 1,
+              }}
+              numberOfLines={1}
+            >
+              {GEN_STATUSES[statusIdx]}
+            </Text>
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                color: colors.primary,
+                marginLeft: 8,
+              }}
+            >
+              {displayPct}%
+            </Text>
+          </View>
+        </View>
+
+        {/* Pulsing dot row */}
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          {[0, 1, 2].map((i) => (
+            <PulsingDot key={i} delay={i * 300} />
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function PulsingDot({ delay }: { delay: number }) {
+  const anim = useRef(new RNAnimated.Value(0.3)).current;
+
+  useEffect(() => {
+    const loop = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(anim, {
+          toValue: 1,
+          duration: 600,
+          delay,
+          useNativeDriver: true,
+        }),
+        RNAnimated.timing(anim, {
+          toValue: 0.3,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  return (
+    <RNAnimated.View
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: colors.primary,
+        opacity: anim,
+      }}
+    />
+  );
+}
+
+// ─── Progress bar for macros ────────────────────────────────────────────────
 
 function MacroBar({
   label,
@@ -224,7 +413,15 @@ function MacroBar({
     <View style={{ flex: 1, gap: 4 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
         <IconComp size={12} color={barColor} />
-        <Text style={{ fontSize: 10, fontWeight: "600", color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 0.3 }}>
+        <Text
+          style={{
+            fontSize: 10,
+            fontWeight: "600",
+            color: colors.textSecondary,
+            textTransform: "uppercase",
+            letterSpacing: 0.3,
+          }}
+        >
           {label}
         </Text>
       </View>
@@ -238,9 +435,19 @@ function MacroBar({
           }}
         />
       </View>
-      <Text style={{ fontSize: 11, fontWeight: "700", color: over ? colors.risky : colors.textPrimary }}>
-        {Math.round(value)}{unit}{" "}
-        <Text style={{ fontWeight: "400", color: colors.textSecondary }}>/ {max}{unit}</Text>
+      <Text
+        style={{
+          fontSize: 11,
+          fontWeight: "700",
+          color: over ? colors.risky : colors.textPrimary,
+        }}
+      >
+        {Math.round(value)}
+        {unit}{" "}
+        <Text style={{ fontWeight: "400", color: colors.textSecondary }}>
+          / {max}
+          {unit}
+        </Text>
       </Text>
     </View>
   );
@@ -266,23 +473,50 @@ function MealCard({ slot, meal }: { slot: keyof typeof MEAL_ICONS; meal: MealIte
       {/* Header */}
       <View style={{ padding: 14 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <View style={{
-            width: 28, height: 28, borderRadius: 8,
-            backgroundColor: colors.primaryLight,
-            alignItems: "center", justifyContent: "center",
-          }}>
+          <View
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              backgroundColor: colors.primaryLight,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
             <IconComp size={14} color={colors.primary} />
           </View>
-          <Text style={{ fontSize: 11, fontWeight: "700", color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 0.6 }}>
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: "700",
+              color: colors.textSecondary,
+              textTransform: "uppercase",
+              letterSpacing: 0.6,
+            }}
+          >
             {MEAL_LABELS[slot]}
           </Text>
         </View>
 
-        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.textPrimary, marginBottom: 2 }}>
+        <Text
+          style={{
+            fontSize: 15,
+            fontWeight: "700",
+            color: colors.textPrimary,
+            marginBottom: 2,
+          }}
+        >
           {meal.name}
         </Text>
         {meal.description ? (
-          <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 6, lineHeight: 17 }}>
+          <Text
+            style={{
+              fontSize: 12,
+              color: colors.textSecondary,
+              marginBottom: 6,
+              lineHeight: 17,
+            }}
+          >
             {meal.description}
           </Text>
         ) : null}
@@ -319,7 +553,10 @@ function MealCard({ slot, meal }: { slot: keyof typeof MEAL_ICONS; meal: MealIte
       {meal.ingredients.length > 0 && (
         <>
           <Pressable
-            onPress={() => { setShowIngredients((v) => !v); Haptics.selectionAsync(); }}
+            onPress={() => {
+              setShowIngredients((v) => !v);
+              Haptics.selectionAsync();
+            }}
             style={{
               flexDirection: "row",
               alignItems: "center",
@@ -363,13 +600,15 @@ function MealCard({ slot, meal }: { slot: keyof typeof MEAL_ICONS; meal: MealIte
                   <Text style={{ fontSize: 12, color: colors.textSecondary, marginLeft: 8 }}>
                     {ing.amount}
                   </Text>
-                  <View style={{
-                    backgroundColor: colors.primaryLight,
-                    paddingHorizontal: 6,
-                    paddingVertical: 2,
-                    borderRadius: 4,
-                    marginLeft: 8,
-                  }}>
+                  <View
+                    style={{
+                      backgroundColor: colors.primaryLight,
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                      borderRadius: 4,
+                      marginLeft: 8,
+                    }}
+                  >
                     <Text style={{ fontSize: 10, fontWeight: "700", color: colors.primary }}>
                       {ing.grams}g
                     </Text>
@@ -385,7 +624,10 @@ function MealCard({ slot, meal }: { slot: keyof typeof MEAL_ICONS; meal: MealIte
       {meal.cookingInstructions ? (
         <>
           <Pressable
-            onPress={() => { setShowInstructions((v) => !v); Haptics.selectionAsync(); }}
+            onPress={() => {
+              setShowInstructions((v) => !v);
+              Haptics.selectionAsync();
+            }}
             style={{
               flexDirection: "row",
               alignItems: "center",
@@ -443,40 +685,56 @@ function SwipeableDayCard({
   return (
     <View style={{ width: cardWidth }}>
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 80, gap: 12 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100, gap: 12 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Day header */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 10,
-            paddingVertical: 8,
-          }}
-        >
+        {/* Day header with date */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 }}>
           <View
             style={{
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 10,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 12,
               backgroundColor: isToday ? colors.primary : colors.cardAlt,
             }}
           >
             <Text
               style={{
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: "800",
                 color: isToday ? colors.background : colors.textPrimary,
               }}
             >
               {dayPlan.day}
             </Text>
+            {dayPlan.date ? (
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: "600",
+                  color: isToday ? `${colors.background}cc` : colors.textSecondary,
+                  marginTop: 1,
+                }}
+              >
+                {dayPlan.date}
+              </Text>
+            ) : null}
           </View>
           {isToday && (
-            <Text style={{ fontSize: 12, fontWeight: "600", color: colors.primary }}>
-              Today
-            </Text>
+            <View
+              style={{
+                backgroundColor: colors.primaryLight,
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: colors.primary,
+              }}
+            >
+              <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary }}>
+                TODAY
+              </Text>
+            </View>
           )}
         </View>
 
@@ -491,7 +749,16 @@ function SwipeableDayCard({
             gap: 10,
           }}
         >
-          <Text style={{ fontSize: 11, fontWeight: "700", color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: "700",
+              color: colors.textSecondary,
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              marginBottom: 2,
+            }}
+          >
             Daily Targets
           </Text>
           <View style={{ flexDirection: "row", gap: 12 }}>
@@ -568,7 +835,15 @@ function ShoppingListTab({
       {/* Store selector */}
       {data.stores && data.stores.length > 0 && (
         <View style={{ gap: 6 }}>
-          <Text style={{ fontSize: 11, fontWeight: "700", color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 0.5 }}>
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: "700",
+              color: colors.textSecondary,
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+            }}
+          >
             Compare Stores
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -579,7 +854,10 @@ function ShoppingListTab({
                 return (
                   <Pressable
                     key={s}
-                    onPress={() => { setSelectedStore(i); Haptics.selectionAsync(); }}
+                    onPress={() => {
+                      setSelectedStore(i);
+                      Haptics.selectionAsync();
+                    }}
                     style={{
                       paddingHorizontal: 14,
                       paddingVertical: 10,
@@ -590,13 +868,29 @@ function ShoppingListTab({
                     }}
                   >
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                      <Store size={13} color={active ? colors.background : colors.textSecondary} />
-                      <Text style={{ fontSize: 13, fontWeight: "700", color: active ? colors.background : colors.textPrimary }}>
+                      <Store
+                        size={13}
+                        color={active ? colors.background : colors.textSecondary}
+                      />
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: "700",
+                          color: active ? colors.background : colors.textPrimary,
+                        }}
+                      >
                         {s}
                       </Text>
                     </View>
                     {data.totalByStore?.[s] != null && (
-                      <Text style={{ fontSize: 11, fontWeight: "600", color: active ? colors.background : colors.textSecondary, marginTop: 2 }}>
+                      <Text
+                        style={{
+                          fontSize: 11,
+                          fontWeight: "600",
+                          color: active ? colors.background : colors.textSecondary,
+                          marginTop: 2,
+                        }}
+                      >
                         Total: {formatPrice(data.totalByStore[s])}
                         {isCheapest ? " ★" : ""}
                       </Text>
@@ -614,7 +908,10 @@ function ShoppingListTab({
         {(["category", "day"] as const).map((mode) => (
           <Pressable
             key={mode}
-            onPress={() => { setViewMode(mode); Haptics.selectionAsync(); }}
+            onPress={() => {
+              setViewMode(mode);
+              Haptics.selectionAsync();
+            }}
             style={{
               flexDirection: "row",
               alignItems: "center",
@@ -628,11 +925,23 @@ function ShoppingListTab({
             }}
           >
             {mode === "category" ? (
-              <LayoutGrid size={12} color={viewMode === mode ? colors.primary : colors.textSecondary} />
+              <LayoutGrid
+                size={12}
+                color={viewMode === mode ? colors.primary : colors.textSecondary}
+              />
             ) : (
-              <ListOrdered size={12} color={viewMode === mode ? colors.primary : colors.textSecondary} />
+              <ListOrdered
+                size={12}
+                color={viewMode === mode ? colors.primary : colors.textSecondary}
+              />
             )}
-            <Text style={{ fontSize: 12, fontWeight: "600", color: viewMode === mode ? colors.primary : colors.textSecondary }}>
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "600",
+                color: viewMode === mode ? colors.primary : colors.textSecondary,
+              }}
+            >
               {mode === "category" ? "By Category" : "By Day"}
             </Text>
           </Pressable>
@@ -640,119 +949,140 @@ function ShoppingListTab({
       </View>
 
       {/* Items: by category */}
-      {viewMode === "category" && data.categories?.map((cat) => (
-        <View
-          key={cat.name}
-          style={{
-            backgroundColor: colors.card,
-            borderRadius: radius.lg,
-            overflow: "hidden",
-            borderWidth: 1,
-            borderColor: colors.border,
-          }}
-        >
-          <View style={{
-            padding: 12,
-            backgroundColor: colors.cardAlt,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          }}>
-            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textPrimary, textTransform: "uppercase", letterSpacing: 0.5 }}>
-              {cat.name}
-            </Text>
-          </View>
-          {cat.items?.map((item, idx) => {
-            const done = checked.has(item.name);
-            const price = item.prices?.[store];
-            return (
-              <Pressable
-                key={`${item.name}-${idx}`}
-                onPress={() => toggle(item.name)}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  borderBottomWidth: idx < cat.items.length - 1 ? 1 : 0,
-                  borderBottomColor: colors.border,
-                  gap: 10,
-                }}
-              >
-                <CheckCircle2 size={18} color={done ? colors.primary : colors.border} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{
-                    fontSize: 13,
-                    fontWeight: "500",
-                    color: done ? colors.textSecondary : colors.textPrimary,
-                    textDecorationLine: done ? "line-through" : "none",
-                  }}>
-                    {item.name}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: colors.textSecondary }}>
-                    Qty: {item.quantity}{item.unit ? ` ${item.unit}` : ""}
-                  </Text>
-                </View>
-                {price != null && (
-                  <Text style={{
-                    fontSize: 13,
-                    fontWeight: "700",
-                    color: done ? colors.textSecondary : colors.primary,
-                  }}>
-                    {formatPrice(price)}
-                  </Text>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
-      ))}
-
-      {/* Items: by day */}
-      {viewMode === "day" && data.byDay?.map((dayGroup) => (
-        <View
-          key={dayGroup.day}
-          style={{
-            backgroundColor: colors.card,
-            borderRadius: radius.lg,
-            padding: 14,
-            borderWidth: 1,
-            borderColor: colors.border,
-          }}
-        >
-          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary, marginBottom: 8 }}>
-            {dayGroup.day}
-          </Text>
-          {dayGroup.items?.map((item, i) => (
-            <Text
-              key={i}
+      {viewMode === "category" &&
+        data.categories?.map((cat) => (
+          <View
+            key={cat.name}
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: radius.lg,
+              overflow: "hidden",
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <View
               style={{
-                fontSize: 13,
-                color: colors.textPrimary,
-                paddingVertical: 3,
-                paddingLeft: 8,
-                borderLeftWidth: 2,
-                borderLeftColor: colors.border,
-                marginBottom: 4,
+                padding: 12,
+                backgroundColor: colors.cardAlt,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border,
               }}
             >
-              {item}
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: "700",
+                  color: colors.textPrimary,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                }}
+              >
+                {cat.name}
+              </Text>
+            </View>
+            {cat.items?.map((item, idx) => {
+              const done = checked.has(item.name);
+              const price = item.prices?.[store];
+              return (
+                <Pressable
+                  key={`${item.name}-${idx}`}
+                  onPress={() => toggle(item.name)}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    borderBottomWidth: idx < cat.items.length - 1 ? 1 : 0,
+                    borderBottomColor: colors.border,
+                    gap: 10,
+                  }}
+                >
+                  <CheckCircle2 size={18} color={done ? colors.primary : colors.border} />
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: "500",
+                        color: done ? colors.textSecondary : colors.textPrimary,
+                        textDecorationLine: done ? "line-through" : "none",
+                      }}
+                    >
+                      {item.name}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: colors.textSecondary }}>
+                      Qty: {item.quantity}
+                      {item.unit ? ` ${item.unit}` : ""}
+                    </Text>
+                  </View>
+                  {price != null && (
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: "700",
+                        color: done ? colors.textSecondary : colors.primary,
+                      }}
+                    >
+                      {formatPrice(price)}
+                    </Text>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
+
+      {/* Items: by day */}
+      {viewMode === "day" &&
+        data.byDay?.map((dayGroup) => (
+          <View
+            key={dayGroup.day}
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: radius.lg,
+              padding: 14,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary, marginBottom: 8 }}>
+              {dayGroup.day}
             </Text>
-          ))}
-        </View>
-      ))}
+            {dayGroup.items?.map((item, i) => (
+              <Text
+                key={i}
+                style={{
+                  fontSize: 13,
+                  color: colors.textPrimary,
+                  paddingVertical: 3,
+                  paddingLeft: 8,
+                  borderLeftWidth: 2,
+                  borderLeftColor: colors.border,
+                  marginBottom: 4,
+                }}
+              >
+                {item}
+              </Text>
+            ))}
+          </View>
+        ))}
 
       {/* Diabetes tip */}
       {data.diabetesTip ? (
-        <View style={{
-          backgroundColor: colors.primaryLight,
-          borderRadius: radius.lg,
-          padding: 14,
-          borderLeftWidth: 4,
-          borderLeftColor: colors.primary,
-        }}>
+        <View
+          style={{
+            backgroundColor: colors.primaryLight,
+            borderRadius: radius.lg,
+            padding: 14,
+            borderLeftWidth: 4,
+            borderLeftColor: colors.primary,
+          }}
+        >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
             <Lightbulb size={14} color={colors.primary} />
-            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>Shopping Tip</Text>
+            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>
+              Shopping Tip
+            </Text>
           </View>
           <Text style={{ fontSize: 13, color: colors.textPrimary, lineHeight: 19 }}>
             {data.diabetesTip}
@@ -779,9 +1109,7 @@ function ShoppingListTab({
           })}
         >
           <FileText size={16} color={colors.primary} />
-          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>
-            Export PDF
-          </Text>
+          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>Export PDF</Text>
         </Pressable>
         <Pressable
           onPress={onExportCsv}
@@ -800,9 +1128,7 @@ function ShoppingListTab({
           })}
         >
           <FileSpreadsheet size={16} color={colors.safe} />
-          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.safe }}>
-            Export CSV
-          </Text>
+          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.safe }}>Export CSV</Text>
         </Pressable>
       </View>
     </View>
@@ -814,18 +1140,35 @@ function ShoppingListTab({
 function EmptyPlan({ onGenerate, loading }: { onGenerate: () => void; loading: boolean }) {
   return (
     <View style={{ alignItems: "center", paddingTop: 60, paddingHorizontal: 32 }}>
-      <View style={{
-        width: 80, height: 80, borderRadius: 24,
-        backgroundColor: colors.primaryLight,
-        alignItems: "center", justifyContent: "center", marginBottom: 20,
-      }}>
+      <View
+        style={{
+          width: 80,
+          height: 80,
+          borderRadius: 24,
+          backgroundColor: colors.primaryLight,
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 20,
+        }}
+      >
         <Sparkles size={36} color={colors.primary} />
       </View>
-      <Text style={{ fontSize: 20, fontWeight: "800", color: colors.textPrimary, textAlign: "center" }}>
+      <Text
+        style={{ fontSize: 20, fontWeight: "800", color: colors.textPrimary, textAlign: "center" }}
+      >
         No meal plan yet
       </Text>
-      <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: "center", marginTop: 8, lineHeight: 21 }}>
-        Generate a personalised weekly plan with cooking instructions, ingredients, and a priced shopping list.
+      <Text
+        style={{
+          fontSize: 14,
+          color: colors.textSecondary,
+          textAlign: "center",
+          marginTop: 8,
+          lineHeight: 21,
+        }}
+      >
+        Generate a personalised weekly plan with cooking instructions, ingredients, and a priced
+        shopping list.
       </Text>
       <Pressable
         onPress={onGenerate}
@@ -833,14 +1176,21 @@ function EmptyPlan({ onGenerate, loading }: { onGenerate: () => void; loading: b
         style={({ pressed }) => ({
           marginTop: 28,
           backgroundColor: colors.primary,
-          paddingHorizontal: 32, paddingVertical: 14,
+          paddingHorizontal: 32,
+          paddingVertical: 14,
           borderRadius: 16,
-          flexDirection: "row", alignItems: "center", gap: 8,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
           opacity: pressed || loading ? 0.8 : 1,
           ...shadow.button,
         })}
       >
-        {loading ? <ActivityIndicator color={colors.background} size="small" /> : <Sparkles size={16} color={colors.background} />}
+        {loading ? (
+          <ActivityIndicator color={colors.background} size="small" />
+        ) : (
+          <Sparkles size={16} color={colors.background} />
+        )}
         <Text style={{ color: colors.background, fontWeight: "700", fontSize: 15 }}>
           {loading ? "Generating…" : "Generate My Plan"}
         </Text>
@@ -893,6 +1243,25 @@ export default function PlannerScreen() {
     });
   };
 
+  const handleReset = () => {
+    Alert.alert(
+      "Reset Meal Plan",
+      "This will clear your current meal plan and shopping list. You can generate a new one afterwards.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset",
+          style: "destructive",
+          onPress: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            // Generate a fresh plan immediately
+            handleGenerate();
+          },
+        },
+      ]
+    );
+  };
+
   const handleGenerateShopping = () => {
     if (!mealPlan) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -905,8 +1274,8 @@ export default function PlannerScreen() {
 
   // ── Parse data ──
   const planData = useMemo(
-    () => (mealPlan?.planJson ? parsePlanJson(mealPlan.planJson) : null),
-    [mealPlan?.planJson]
+    () => (mealPlan?.planJson ? parsePlanJson(mealPlan.planJson, weekStart) : null),
+    [mealPlan?.planJson, weekStart]
   );
 
   const shoppingData = useMemo(
@@ -922,6 +1291,7 @@ export default function PlannerScreen() {
 
   // ── Day navigation ──
   const goToDay = (idx: number) => {
+    if (idx < 0 || !planData || idx >= planData.days.length) return;
     setCurrentDayIdx(idx);
     flatListRef.current?.scrollToIndex({ index: idx, animated: true });
   };
@@ -942,12 +1312,15 @@ export default function PlannerScreen() {
     });
 
     const total = shoppingData.totalByStore?.[store];
-    const html = `<html><head><style>body{font-family:Helvetica;background:#0b1120;color:#f0f4f8;padding:20px}h1{color:#14b8a6;font-size:22px}table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#111c2e;padding:8px;text-align:left;color:#7b8fa3;font-size:12px;text-transform:uppercase}td{border-bottom:1px solid #1e2d40;font-size:13px}tfoot td{font-weight:bold;padding:10px 8px;color:#14b8a6;border-top:2px solid #14b8a6}</style></head><body><h1>GlucoLens Shopping List</h1><p style="color:#7b8fa3">Week of ${weekStart} — ${store}</p><table><thead><tr><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Price</th></tr></thead><tbody>${rows}</tbody>${total ? `<tfoot><tr><td colspan="2">TOTAL</td><td style="text-align:right">${currency} ${total.toFixed(2)}</td></tr></tfoot>` : ""}</table></body></html>`;
+    const html = `<html><head><style>body{font-family:Helvetica;background:#0b1120;color:#f0f4f8;padding:20px}h1{color:#14b8a6;font-size:22px}h2{color:#7b8fa3;font-size:14px;margin-top:4px}table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#111c2e;padding:8px;text-align:left;color:#7b8fa3;font-size:12px;text-transform:uppercase}td{border-bottom:1px solid #1e2d40;font-size:13px}tfoot td{font-weight:bold;padding:10px 8px;color:#14b8a6;border-top:2px solid #14b8a6}</style></head><body><h1>GlucoLens Shopping List</h1><h2>Week of ${weekStart} — ${store}</h2><table><thead><tr><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Price</th></tr></thead><tbody>${rows}</tbody>${total ? `<tfoot><tr><td colspan="2">TOTAL</td><td style="text-align:right">${currency} ${total.toFixed(2)}</td></tr></tfoot>` : ""}</table></body></html>`;
 
     try {
       const { uri } = await Print.printToFileAsync({ html });
-      await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle: "Shopping List PDF" });
-    } catch (err) {
+      await Sharing.shareAsync(uri, {
+        mimeType: "application/pdf",
+        dialogTitle: "Shopping List PDF",
+      });
+    } catch {
       Alert.alert("Export failed", "Could not generate PDF.");
     }
   };
@@ -956,29 +1329,39 @@ export default function PlannerScreen() {
   const exportCsv = async () => {
     if (!shoppingData) return;
 
-    const headers = ["Category", "Item", "Quantity", ...shoppingData.stores.map((s) => `Price (${s})`)];
+    const headers = [
+      "Category",
+      "Item",
+      "Quantity",
+      ...shoppingData.stores.map((s) => `Price (${s})`),
+    ];
     let csvRows = [headers.join(",")];
 
     shoppingData.categories?.forEach((cat) => {
       cat.items?.forEach((item) => {
         const prices = shoppingData.stores.map((s) => item.prices?.[s]?.toFixed(2) ?? "");
-        csvRows.push([
-          `"${cat.name}"`,
-          `"${item.name}"`,
-          `"${item.quantity}${item.unit ? " " + item.unit : ""}"`,
-          ...prices,
-        ].join(","));
+        csvRows.push(
+          [
+            `"${cat.name}"`,
+            `"${item.name}"`,
+            `"${item.quantity}${item.unit ? " " + item.unit : ""}"`,
+            ...prices,
+          ].join(",")
+        );
       });
     });
 
-    // Totals row
-    const totals = shoppingData.stores.map((s) => shoppingData.totalByStore?.[s]?.toFixed(2) ?? "");
+    const totals = shoppingData.stores.map(
+      (s) => shoppingData.totalByStore?.[s]?.toFixed(2) ?? ""
+    );
     csvRows.push(["", "TOTAL", "", ...totals].join(","));
 
     const csv = csvRows.join("\n");
     const fileUri = FileSystem.documentDirectory + "GlucoLens_Shopping_List.csv";
     try {
-      await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+      await FileSystem.writeAsStringAsync(fileUri, csv, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
       await Sharing.shareAsync(fileUri, { mimeType: "text/csv", dialogTitle: "Shopping List CSV" });
     } catch {
       Alert.alert("Export failed", "Could not generate CSV.");
@@ -991,65 +1374,99 @@ export default function PlannerScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
-      <View style={{
-        paddingTop: insets.top + 12,
-        paddingHorizontal: 20,
-        paddingBottom: 12,
-        backgroundColor: colors.card,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-      }}>
+      <View
+        style={{
+          paddingTop: insets.top + 12,
+          paddingHorizontal: 20,
+          paddingBottom: 12,
+          backgroundColor: colors.card,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+        }}
+      >
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View>
-            <Text style={{ fontSize: 24, fontWeight: "800", color: colors.textPrimary }}>Meal Planner</Text>
+            <Text style={{ fontSize: 24, fontWeight: "800", color: colors.textPrimary }}>
+              Meal Planner
+            </Text>
             <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 1 }}>
               Week of {format(startOfWeek(new Date(), { weekStartsOn: 1 }), "d MMM yyyy")}
             </Text>
           </View>
+
+          {/* Header action buttons */}
           {planData && (
-            <Pressable
-              onPress={handleGenerate}
-              disabled={generateMutation.isPending}
-              style={({ pressed }) => ({
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 5,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderRadius: 10,
-                backgroundColor: colors.primaryLight,
-                borderWidth: 1,
-                borderColor: colors.primary,
-                opacity: pressed || generateMutation.isPending ? 0.6 : 1,
-              })}
-            >
-              {generateMutation.isPending ? (
-                <ActivityIndicator color={colors.primary} size="small" />
-              ) : (
-                <RefreshCw size={13} color={colors.primary} />
-              )}
-              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>
-                {generateMutation.isPending ? "..." : "Regen"}
-              </Text>
-            </Pressable>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {/* Reset button */}
+              <Pressable
+                onPress={handleReset}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  paddingHorizontal: 10,
+                  paddingVertical: 8,
+                  borderRadius: 10,
+                  backgroundColor: colors.riskyBg,
+                  borderWidth: 1,
+                  borderColor: colors.risky,
+                  opacity: pressed ? 0.6 : 1,
+                })}
+              >
+                <RotateCcw size={13} color={colors.risky} />
+                <Text style={{ fontSize: 11, fontWeight: "700", color: colors.risky }}>Reset</Text>
+              </Pressable>
+
+              {/* Regen button */}
+              <Pressable
+                onPress={handleGenerate}
+                disabled={generateMutation.isPending}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  paddingHorizontal: 10,
+                  paddingVertical: 8,
+                  borderRadius: 10,
+                  backgroundColor: colors.primaryLight,
+                  borderWidth: 1,
+                  borderColor: colors.primary,
+                  opacity: pressed || generateMutation.isPending ? 0.6 : 1,
+                })}
+              >
+                {generateMutation.isPending ? (
+                  <ActivityIndicator color={colors.primary} size={12} />
+                ) : (
+                  <RefreshCw size={13} color={colors.primary} />
+                )}
+                <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary }}>
+                  {generateMutation.isPending ? "..." : "Regen"}
+                </Text>
+              </Pressable>
+            </View>
           )}
         </View>
 
         {/* Tab bar */}
-        <View style={{
-          flexDirection: "row",
-          backgroundColor: colors.glass,
-          borderRadius: radius.lg,
-          borderWidth: 1,
-          borderColor: colors.glassBorder,
-          marginTop: 12,
-          padding: 3,
-          gap: 3,
-        }}>
+        <View
+          style={{
+            flexDirection: "row",
+            backgroundColor: colors.glass,
+            borderRadius: radius.lg,
+            borderWidth: 1,
+            borderColor: colors.glassBorder,
+            marginTop: 12,
+            padding: 3,
+            gap: 3,
+          }}
+        >
           {(["plan", "shopping"] as const).map((tab) => (
             <Pressable
               key={tab}
-              onPress={() => { Haptics.selectionAsync(); setActiveTab(tab); }}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setActiveTab(tab);
+              }}
               style={{
                 flex: 1,
                 paddingVertical: 8,
@@ -1058,11 +1475,13 @@ export default function PlannerScreen() {
                 backgroundColor: activeTab === tab ? colors.primary : "transparent",
               }}
             >
-              <Text style={{
-                fontSize: 13,
-                fontWeight: "700",
-                color: activeTab === tab ? colors.background : colors.textSecondary,
-              }}>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: "700",
+                  color: activeTab === tab ? colors.background : colors.textSecondary,
+                }}
+              >
                 {tab === "shopping" ? "Shopping List" : "Meal Plan"}
               </Text>
             </Pressable>
@@ -1080,15 +1499,18 @@ export default function PlannerScreen() {
       ) : activeTab === "plan" ? (
         <View style={{ flex: 1 }}>
           {/* Day indicator dots + arrows */}
-          <View style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-            paddingVertical: 12,
-          }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 4,
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+            }}
+          >
             <Pressable
-              onPress={() => currentDayIdx > 0 && goToDay(currentDayIdx - 1)}
+              onPress={() => goToDay(currentDayIdx - 1)}
               style={{ padding: 6, opacity: currentDayIdx > 0 ? 1 : 0.3 }}
             >
               <ChevronLeft size={18} color={colors.textSecondary} />
@@ -1100,24 +1522,39 @@ export default function PlannerScreen() {
                 <Pressable
                   key={i}
                   onPress={() => goToDay(i)}
-                  style={{
-                    width: active ? 24 : 8,
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor: active
-                      ? colors.primary
-                      : isToday
-                      ? colors.primaryDark
-                      : colors.border,
-                  }}
-                />
+                  style={{ alignItems: "center", paddingHorizontal: 2 }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 9,
+                      fontWeight: "700",
+                      color: active ? colors.primary : isToday ? colors.primaryDark : colors.textMuted,
+                      marginBottom: 3,
+                    }}
+                  >
+                    {d.day.slice(0, 3)}
+                  </Text>
+                  <View
+                    style={{
+                      width: active ? 20 : 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: active
+                        ? colors.primary
+                        : isToday
+                        ? colors.primaryDark
+                        : colors.border,
+                    }}
+                  />
+                </Pressable>
               );
             })}
             <Pressable
-              onPress={() =>
-                currentDayIdx < planData.days.length - 1 && goToDay(currentDayIdx + 1)
-              }
-              style={{ padding: 6, opacity: currentDayIdx < planData.days.length - 1 ? 1 : 0.3 }}
+              onPress={() => goToDay(currentDayIdx + 1)}
+              style={{
+                padding: 6,
+                opacity: currentDayIdx < planData.days.length - 1 ? 1 : 0.3,
+              }}
             >
               <ChevronRight size={18} color={colors.textSecondary} />
             </Pressable>
@@ -1140,7 +1577,7 @@ export default function PlannerScreen() {
               offset: cardWidth * index,
               index,
             })}
-            renderItem={({ item, index }) => (
+            renderItem={({ item }) => (
               <SwipeableDayCard
                 dayPlan={item}
                 isToday={item.day === todayName}
@@ -1151,18 +1588,20 @@ export default function PlannerScreen() {
           />
 
           {/* Sticky bottom: Add to Shopping List */}
-          <View style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            paddingHorizontal: 20,
-            paddingBottom: insets.bottom + 16,
-            paddingTop: 12,
-            backgroundColor: colors.background,
-            borderTopWidth: 1,
-            borderTopColor: colors.border,
-          }}>
+          <View
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              paddingHorizontal: 20,
+              paddingBottom: insets.bottom + 16,
+              paddingTop: 12,
+              backgroundColor: colors.background,
+              borderTopWidth: 1,
+              borderTopColor: colors.border,
+            }}
+          >
             <Pressable
               onPress={handleGenerateShopping}
               disabled={shoppingMutation.isPending}
@@ -1204,13 +1643,15 @@ export default function PlannerScreen() {
           ) : (
             <View style={{ alignItems: "center", paddingTop: 60 }}>
               <ShoppingCart size={40} color={colors.border} />
-              <Text style={{
-                marginTop: 16,
-                fontSize: 15,
-                color: colors.textSecondary,
-                textAlign: "center",
-                lineHeight: 22,
-              }}>
+              <Text
+                style={{
+                  marginTop: 16,
+                  fontSize: 15,
+                  color: colors.textSecondary,
+                  textAlign: "center",
+                  lineHeight: 22,
+                }}
+              >
                 No shopping list yet.{"\n"}Go to Meal Plan tab and tap{"\n"}"Generate Shopping List".
               </Text>
             </View>
@@ -1218,34 +1659,8 @@ export default function PlannerScreen() {
         </ScrollView>
       )}
 
-      {/* Generating overlay */}
-      {generateMutation.isPending && (
-        <View style={{
-          position: "absolute",
-          top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: colors.overlay,
-          justifyContent: "center",
-          alignItems: "center",
-          zIndex: 100,
-        }}>
-          <View style={{
-            backgroundColor: colors.card,
-            borderRadius: radius.xl,
-            padding: 32,
-            alignItems: "center",
-            gap: 16,
-            ...shadow.card,
-          }}>
-            <ActivityIndicator color={colors.primary} size="large" />
-            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.textPrimary }}>
-              Generating Your Plan
-            </Text>
-            <Text style={{ fontSize: 13, color: colors.textSecondary, textAlign: "center", lineHeight: 19 }}>
-              Creating meals with cooking{"\n"}instructions and ingredients…
-            </Text>
-          </View>
-        </View>
-      )}
+      {/* Generating overlay with progress bar */}
+      <GeneratingOverlay visible={generateMutation.isPending} />
     </View>
   );
 }
