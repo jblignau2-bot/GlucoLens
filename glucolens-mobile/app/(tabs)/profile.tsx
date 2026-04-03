@@ -395,7 +395,7 @@ export default function ProfileScreen() {
   const [exporting, setExporting] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
 
-  const { data: reminders } = trpc.reminders.list.useQuery();
+  // reminders query removed — reminders now has its own tab
 
   const updateProfileMutation = trpc.profile.upsert.useMutation({
     onSuccess: (data) => profileStore.setProfile(data as any),
@@ -610,13 +610,13 @@ export default function ProfileScreen() {
             onPress={() => setActivityPickerOpen(true)}
           />
 
-          {/* ── Notifications ── */}
-          <SectionHeader title="Notifications" />
+          {/* ── Health Tracking ── */}
+          <SectionHeader title="Health Tracking" />
           <SettingsRow
-            icon={<Bell size={16} color={colors.primary} />}
-            label="Meal & Water Reminders"
-            value={`${(reminders ?? []).filter((r: any) => r.enabled).length} active`}
-            onPress={() => router.push("/reminders")}
+            icon={<Activity size={16} color={colors.primary} />}
+            label="Glucose & Weight Log"
+            value="Track your blood sugar and weight"
+            onPress={() => router.push("/health-log")}
           />
 
           {/* ── Data ── */}

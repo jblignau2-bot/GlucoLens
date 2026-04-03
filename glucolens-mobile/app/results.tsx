@@ -414,9 +414,9 @@ export default function ResultsScreen() {
                 <AlertTriangle size={16} color={colors.risky} />
                 <Text style={{ fontSize: 14, fontWeight: "700", color: colors.risky }}>Why it's risky</Text>
               </View>
-              {result.whyRisky.map((reason: string, i: number) => (
+              {result.whyRisky.map((r: any, i: number) => (
                 <Text key={i} style={{ fontSize: 13, color: colors.textPrimary, lineHeight: 19, marginBottom: 4 }}>
-                  • {reason}
+                  • {typeof r === "string" ? r : String(r)}
                 </Text>
               ))}
             </View>
@@ -438,9 +438,9 @@ export default function ResultsScreen() {
                 <Lightbulb size={16} color={colors.safe} />
                 <Text style={{ fontSize: 14, fontWeight: "700", color: colors.safe }}>Healthier Alternatives</Text>
               </View>
-              {result.healthierAlternatives.map((alt: string, i: number) => (
+              {result.healthierAlternatives.map((alt: any, i: number) => (
                 <Text key={i} style={{ fontSize: 13, color: colors.textPrimary, lineHeight: 19, marginBottom: 4 }}>
-                  • {alt}
+                  • {typeof alt === "string" ? alt : alt?.name ? `${alt.name} — ${alt.benefit ?? ""}` : String(alt)}
                 </Text>
               ))}
             </View>

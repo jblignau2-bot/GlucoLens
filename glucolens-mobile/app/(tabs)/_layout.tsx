@@ -2,7 +2,7 @@ import { Tabs } from "expo-router";
 import { View, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useRef } from "react";
-import { Home, CalendarDays, Camera, TrendingUp, User } from "lucide-react-native";
+import { Home, CalendarDays, Camera, Bell, User } from "lucide-react-native";
 import { colors } from "@/constants/tokens";
 import { trpc } from "@/lib/trpc";
 import { useProfileStore } from "@/stores/profileStore";
@@ -117,10 +117,16 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="reminders"
+        options={{
+          title: "Reminders",
+          tabBarIcon: ({ color, size }) => <Bell size={size} color={color} strokeWidth={2} />,
+        }}
+      />
+      <Tabs.Screen
         name="glucose"
         options={{
-          title: "Glucose",
-          tabBarIcon: ({ color, size }) => <TrendingUp size={size} color={color} strokeWidth={2} />,
+          href: null, // Hide from tab bar — accessible via Profile > Health Log
         }}
       />
       <Tabs.Screen

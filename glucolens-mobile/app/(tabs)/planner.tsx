@@ -17,6 +17,11 @@ import {
   useWindowDimensions,
   Animated as RNAnimated,
   Share,
+  Switch,
+  TextInput,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
@@ -48,6 +53,7 @@ import {
   LayoutGrid,
   Store,
   RotateCcw,
+  Bell,
 } from "lucide-react-native";
 import { format, startOfWeek, addDays, parseISO } from "date-fns";
 import * as Haptics from "expo-haptics";
@@ -237,11 +243,7 @@ function GeneratingOverlay({ visible }: { visible: boolean }) {
         useNativeDriver: false,
       }).start();
 
-      // Update display percentage
-      const pctTimer = setInterval(() => {
-        progressAnim.stopAnimation?.((v) => {}); // no-op, just need the listener
-      }, 200);
-
+      // Update display percentage via animation listener
       const listener = progressAnim.addListener(({ value }) => {
         setDisplayPct(Math.round(value));
       });
@@ -255,7 +257,6 @@ function GeneratingOverlay({ visible }: { visible: boolean }) {
       }, 4000);
 
       return () => {
-        clearInterval(pctTimer);
         clearInterval(msgTimer);
         progressAnim.removeListener(listener);
         progressAnim.stopAnimation();
@@ -1133,6 +1134,186 @@ function ShoppingListTab({
 
 // ─── Empty / Generate CTA ───────────────────────────────────────────────────
 
+// ─── Quick Meal Reminder Toggle ─────────────────────────────────────────────
+
+function MealReminderToggle() {
+  const { data: reminders, refetch } = trpc.reminders.list.useQuery();
+  const addMutation = trpc.reminders.add.useMutation({ onSuccess: () => refetch() });
+  const toggleMutation = trpc.reminders.toggle.useMutation({ onSuccess: () => refetch() });
+  const deleteMutation = trpc.reminders.delete.useMutation({ onSuccess: () => refetch() });
+
+  const [showModal, setShowModal] = useState(false);
+  const [reminderTime, setReminderTime] = useState("12:00");
+  const [reminderLabel, setReminderLabel] = useState("Meal Reminder");
+
+  const mealReminders = (reminders ?? []).filter((r: any) => r.type === "meal");
+  const hasActive = mealReminders.some((r: any) => r.enabled);
+
+  const handleQuickToggle = () => {
+    if (mealReminders.length === 0) {
+      // No reminders exist — open the modal to create one
+      setShowModal(true);
+      return;
+    }
+    // Toggle all meal reminders
+    Haptics.selectionAsync();
+    mealReminders.forEach((r: any) => {
+      toggleMutation.mutate({ id: r.id, enabled: !hasActive });
+    });
+  };
+
+  const handleAddReminder = () => {
+    if (!/^\d{2}:\d{2}$/.test(reminderTime)) {
+      Alert.alert("Invalid time", "Use HH:MM format (e.g. 12:00).");
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    addMutation.mutate({ type: "meal", label: reminderLabel.trim() || "Meal Reminder", time: reminderTime });
+    setShowModal(false);
+  };
+
+  return (
+    <>
+      <Pressable
+        onPress={handleQuickToggle}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+          paddingVertical: 8,
+          paddingHorizontal: 12,
+          borderRadius: radius.md,
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: hasActive ? colors.primary : colors.border,
+        }}
+      >
+        <Bell size={14} color={hasActive ? colors.primary : colors.textSecondary} />
+        <Text style={{ flex: 1, fontSize: 13, fontWeight: "600", color: colors.textPrimary }}>
+          Meal Reminders
+        </Text>
+        {mealReminders.length > 0 ? (
+          <Switch
+            value={hasActive}
+            onValueChange={handleQuickToggle}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor="#fff"
+            style={{ transform: [{ scale: 0.8 }] }}
+          />
+        ) : (
+          <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "700" }}>Set up</Text>
+        )}
+      </Pressable>
+
+      {/* Quick-add modal */}
+      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+          <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.5)" }}>
+            <View style={{
+              backgroundColor: colors.card,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 24,
+              paddingBottom: 40,
+              gap: 16,
+            }}>
+              <Text style={{ fontSize: 17, fontWeight: "800", color: colors.textPrimary }}>
+                Set Meal Reminder
+              </Text>
+
+              {/* Quick presets */}
+              <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+                {["Breakfast", "Lunch", "Dinner", "Snack"].map((label) => (
+                  <Pressable
+                    key={label}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setReminderLabel(label);
+                      // Set sensible default times
+                      if (label === "Breakfast") setReminderTime("07:30");
+                      else if (label === "Lunch") setReminderTime("12:00");
+                      else if (label === "Dinner") setReminderTime("18:30");
+                      else setReminderTime("15:00");
+                    }}
+                    style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
+                      borderRadius: 20,
+                      backgroundColor: reminderLabel === label ? colors.primaryLight : colors.background,
+                      borderWidth: 1,
+                      borderColor: reminderLabel === label ? colors.primary : colors.border,
+                    }}
+                  >
+                    <Text style={{
+                      fontSize: 13,
+                      fontWeight: "600",
+                      color: reminderLabel === label ? colors.primary : colors.textSecondary,
+                    }}>
+                      {label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* Time input */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: colors.textSecondary }}>Time:</Text>
+                <TextInput
+                  value={reminderTime}
+                  onChangeText={(t) => setReminderTime(t.replace(/[^0-9:]/g, "").slice(0, 5))}
+                  placeholder="12:00"
+                  keyboardType="numbers-and-punctuation"
+                  style={{
+                    backgroundColor: colors.background,
+                    borderRadius: radius.md,
+                    padding: 10,
+                    fontSize: 18,
+                    fontWeight: "700",
+                    color: colors.textPrimary,
+                    textAlign: "center",
+                    borderWidth: 1.5,
+                    borderColor: /^\d{2}:\d{2}$/.test(reminderTime) ? colors.primary : colors.border,
+                    width: 90,
+                  }}
+                />
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <Pressable
+                  onPress={() => setShowModal(false)}
+                  style={{
+                    flex: 1, height: 46, borderRadius: radius.lg,
+                    alignItems: "center", justifyContent: "center",
+                    backgroundColor: colors.background,
+                    borderWidth: 1, borderColor: colors.border,
+                  }}
+                >
+                  <Text style={{ fontWeight: "700", color: colors.textSecondary }}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleAddReminder}
+                  style={({ pressed }) => ({
+                    flex: 2, height: 46, borderRadius: radius.lg,
+                    alignItems: "center", justifyContent: "center",
+                    backgroundColor: colors.primary,
+                    opacity: pressed ? 0.85 : 1,
+                  })}
+                >
+                  <Text style={{ fontWeight: "700", color: "#fff", fontSize: 15 }}>
+                    {addMutation.isPending ? "Saving…" : "Add Reminder"}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </>
+  );
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
 function EmptyPlan({ onGenerate, loading }: { onGenerate: () => void; loading: boolean }) {
   return (
     <View style={{ alignItems: "center", paddingTop: 60, paddingHorizontal: 32 }}>
@@ -1592,7 +1773,7 @@ export default function PlannerScreen() {
             )}
           />
 
-          {/* Sticky bottom: Add to Shopping List */}
+          {/* Sticky bottom: Meal reminder + Shopping List */}
           <View
             style={{
               position: "absolute",
@@ -1601,12 +1782,16 @@ export default function PlannerScreen() {
               right: 0,
               paddingHorizontal: 20,
               paddingBottom: insets.bottom + 16,
-              paddingTop: 12,
+              paddingTop: 10,
               backgroundColor: colors.background,
               borderTopWidth: 1,
               borderTopColor: colors.border,
+              gap: 8,
             }}
           >
+            {/* Quick meal reminder toggle */}
+            <MealReminderToggle />
+
             <Pressable
               onPress={handleGenerateShopping}
               disabled={shoppingMutation.isPending}
