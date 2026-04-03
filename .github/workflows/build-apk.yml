@@ -30,7 +30,7 @@ jobs:
 
       - name: Install mobile dependencies
         working-directory: glucolens-mobile
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       - name: Create .env for build
         working-directory: glucolens-mobile
