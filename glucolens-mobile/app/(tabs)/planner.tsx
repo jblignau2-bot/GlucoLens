@@ -260,14 +260,10 @@ function GeneratingOverlay({ visible }: { visible: boolean }) {
         progressAnim.removeListener(listener);
         progressAnim.stopAnimation();
       };
-    } else {
-      // Snap to 100% briefly
-      setDisplayPct(100);
-      progressAnim.setValue(100);
     }
   }, [visible]);
 
-  if (!visible && displayPct < 100) return null;
+  if (!visible) return null;
 
   return (
     <View
@@ -1290,11 +1286,11 @@ export default function PlannerScreen() {
   };
 
   // ── Day navigation ──
-  const goToDay = (idx: number) => {
-    if (idx < 0 || !planData || idx >= planData.days.length) return;
+  const goToDay = useCallback((idx: number) => {
+    if (idx < 0 || idx >= (planData?.days?.length ?? 0)) return;
     setCurrentDayIdx(idx);
     flatListRef.current?.scrollToIndex({ index: idx, animated: true });
-  };
+  }, [planData?.days?.length]);
 
   // ── Export: PDF ──
   const exportPdf = async () => {
@@ -1312,7 +1308,7 @@ export default function PlannerScreen() {
     });
 
     const total = shoppingData.totalByStore?.[store];
-    const html = `<html><head><style>body{font-family:Helvetica;background:#0b1120;color:#f0f4f8;padding:20px}h1{color:#14b8a6;font-size:22px}h2{color:#7b8fa3;font-size:14px;margin-top:4px}table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#111c2e;padding:8px;text-align:left;color:#7b8fa3;font-size:12px;text-transform:uppercase}td{border-bottom:1px solid #1e2d40;font-size:13px}tfoot td{font-weight:bold;padding:10px 8px;color:#14b8a6;border-top:2px solid #14b8a6}</style></head><body><h1>GlucoLens Shopping List</h1><h2>Week of ${weekStart} — ${store}</h2><table><thead><tr><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Price</th></tr></thead><tbody>${rows}</tbody>${total ? `<tfoot><tr><td colspan="2">TOTAL</td><td style="text-align:right">${currency} ${total.toFixed(2)}</td></tr></tfoot>` : ""}</table></body></html>`;
+    const html = `<html><head><style>body{font-family:Helvetica;background:#0b1120;color:#f0f4f8;padding:20px}h1{color:#14b8a6;font-size:22px}h2{color:#7b8fa3;font-size:14px;margin-top:4px}table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#111c2e;padding:8px;text-align:left;color:#7b8fa3;font-size:12px;text-transform:uppercase}td{border-bottom:1px solid #1e2d40;font-size:13px}tfoot td{font-weight:bold;padding:10px 8px;color:#14b8a6;border-top:2px solid #14b8a6}</style></head><body><h1>GlucoLens Shopping List</h1><h2>Week of ${weekStart} — ${store}</h2><table><thead><tr><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Price</th></tr></thead><tbody>${rows}</tbody>${total ? `<tfoot><tr><td colspan="2">TOTAL</td><td style="text-align:right">${currency} ${total.toFixed(2)}</td></tr></tfoot>` : ""}</table><p style="margin-top:20px;font-size:10px;color:#7b8fa3;text-align:center">This is a guide only, not medical advice. Always consult your healthcare provider before making dietary changes.</p></body></html>`;
 
     try {
       const { uri } = await Print.printToFileAsync({ html });
@@ -1329,6 +1325,11 @@ export default function PlannerScreen() {
   const exportCsv = async () => {
     if (!shoppingData) return;
 
+    if (!shoppingData?.stores?.length || !shoppingData?.categories?.length) {
+      Alert.alert("Export failed", "Shopping list data is incomplete.");
+      return;
+    }
+
     const headers = [
       "Category",
       "Item",
@@ -1342,8 +1343,8 @@ export default function PlannerScreen() {
         const prices = shoppingData.stores.map((s) => item.prices?.[s]?.toFixed(2) ?? "");
         csvRows.push(
           [
-            `"${cat.name}"`,
-            `"${item.name}"`,
+            `"${cat.name?.replace(/"/g, '""') ?? ""}"`,
+            `"${item.name?.replace(/"/g, '""') ?? ""}"`,
             `"${item.quantity}${item.unit ? " " + item.unit : ""}"`,
             ...prices,
           ].join(",")
@@ -1400,6 +1401,7 @@ export default function PlannerScreen() {
               {/* Reset button */}
               <Pressable
                 onPress={handleReset}
+                accessibilityLabel="Reset meal plan"
                 style={({ pressed }) => ({
                   flexDirection: "row",
                   alignItems: "center",
@@ -1421,6 +1423,7 @@ export default function PlannerScreen() {
               <Pressable
                 onPress={handleGenerate}
                 disabled={generateMutation.isPending}
+                accessibilityLabel="Regenerate meal plan"
                 style={({ pressed }) => ({
                   flexDirection: "row",
                   alignItems: "center",
@@ -1567,7 +1570,9 @@ export default function PlannerScreen() {
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            keyExtractor={(_, i) => String(i)}
+            keyExtractor={(item, i) => `${item.day}-${i}`}
+            snapToInterval={cardWidth}
+            decelerationRate="fast"
             onMomentumScrollEnd={(e) => {
               const idx = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
               setCurrentDayIdx(idx);

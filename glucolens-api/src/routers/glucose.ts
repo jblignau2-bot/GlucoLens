@@ -16,7 +16,7 @@ export const glucoseRouter = router({
       return (data || []).map((r: any) => ({
         id: r.id,
         value: r.value,
-        unit: r.unit,
+        unit: r.unit ?? "mmol",
         loggedAt: r.logged_at,
       }));
     }),
@@ -43,7 +43,7 @@ export const glucoseRouter = router({
     }),
 
   delete: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: z.string().or(z.number()).transform(String) }))
     .mutation(async ({ ctx, input }) => {
       const { error } = await supabase
         .from("glucose_readings")

@@ -1,9 +1,18 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { supabase } from "../supabase";
-import OpenAI from "openai";
+import { openai } from "../openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// ─── Helper functions ────────────────────────────────────────────────────────
+function tryParse(val: any, fallback: any) {
+  if (val == null) return fallback;
+  // JSONB columns return as objects already, TEXT columns return as strings
+  if (typeof val === "object") return val;
+  if (typeof val === "string") {
+    try { return JSON.parse(val); } catch { return fallback; }
+  }
+  return fallback;
+}
 
 // ─── Shared analysis prompt ──────────────────────────────────────────────────
 function buildAnalysisPrompt(country: string, diabetesType: string) {
@@ -100,7 +109,7 @@ export const foodRouter = router({
       return results.map((r: any) => ({
         id: r.id,
         mealName: r.meal_name,
-        imageUrl: r.image_url ?? undefined,
+        // imageUrl not in original schema
         calories: r.calories,
         totalSugar: r.total_sugar,
         totalCarbs: r.total_carbs,
@@ -113,11 +122,11 @@ export const foodRouter = router({
         ratingType2: r.rating_type2,
         reasonType1: r.reason_type1,
         reasonType2: r.reason_type2,
-        whyRisky: tryParse(r.why_risky_json ?? null, []),
-        healthierAlternatives: tryParse(r.healthier_alternatives_json ?? null, []),
-        foodsToAvoid: tryParse(r.foods_to_avoid_json ?? null, []),
-        itemBreakdown: tryParse(r.item_breakdown_json ?? null, []),
-        identifiedFoods: tryParse(r.identified_foods_json ?? null, []),
+        whyRisky: tryParse(r.why_risky, []),
+        healthierAlternatives: tryParse(r.healthier_alternatives, []),
+        foodsToAvoid: tryParse(r.foods_to_avoid, []),
+        itemBreakdown: tryParse(r.item_breakdown, []),
+        identifiedFoods: tryParse(r.identified_foods, []),
         loggedAt: r.logged_at,
       }));
     }),
@@ -153,8 +162,7 @@ export const foodRouter = router({
         .insert({
           user_id: ctx.userId,
           meal_name: input.mealName,
-          image_url: input.imageUrl,
-          identified_foods_json: JSON.stringify(input.identifiedFoods),
+          identified_foods: input.identifiedFoods,
           calories: input.nutrition.calories,
           total_sugar: input.nutrition.totalSugar_g,
           total_carbs: input.nutrition.totalCarbs_g,
@@ -167,10 +175,10 @@ export const foodRouter = router({
           rating_type2: input.diabetesRating.type2.rating,
           reason_type1: input.diabetesRating.type1.reason,
           reason_type2: input.diabetesRating.type2.reason,
-          why_risky_json: JSON.stringify(input.whyRisky),
-          healthier_alternatives_json: JSON.stringify(input.healthierAlternatives),
-          foods_to_avoid_json: JSON.stringify(input.foodsToAvoid),
-          item_breakdown_json: JSON.stringify(input.itemBreakdown ?? []),
+          why_risky: input.whyRisky,
+          healthier_alternatives: input.healthierAlternatives,
+          foods_to_avoid: input.foodsToAvoid,
+          item_breakdown: input.itemBreakdown ?? [],
           logged_at: new Date().toISOString(),
           country: input.country,
         })
@@ -182,7 +190,7 @@ export const foodRouter = router({
 
   analyze: protectedProcedure
     .input(z.object({
-      imageBase64: z.string(),
+      imageBase64: z.string().max(5_000_000, "Image too large"),
       country: z.string().optional(),
       diabetesType: z.string().optional(),
     }))
@@ -198,13 +206,14 @@ export const foodRouter = router({
           ],
         }],
       });
-      const content = response.choices[0]?.message?.content ?? "{}";
+      const content = response.choices[0]?.message?.content;
+      if (!content) throw new Error("AI returned no analysis. Please try again.");
       return await parseAnalysis(content);
     }),
 
   analyzeText: protectedProcedure
     .input(z.object({
-      description: z.string(),
+      description: z.string().max(2000, "Description too long"),
       country: z.string().optional(),
       diabetesType: z.string().optional(),
     }))
@@ -217,20 +226,33 @@ export const foodRouter = router({
           content: `${buildAnalysisPrompt(input.country ?? "", input.diabetesType ?? "type2")}\n\nMeal description: ${input.description}`,
         }],
       });
-      const content = response.choices[0]?.message?.content ?? "{}";
+      const content = response.choices[0]?.message?.content;
+      if (!content) throw new Error("AI returned no analysis. Please try again.");
       return await parseAnalysis(content);
     }),
 
   analyzeBarcode: protectedProcedure
     .input(z.object({
-      barcode: z.string(),
+      barcode: z.string().regex(/^\d{8,14}$/, "Invalid barcode format"),
       country: z.string().optional(),
       diabetesType: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
       // Fetch from Open Food Facts (free, no API key)
-      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${input.barcode}.json`);
+      let res: Response;
+      try {
+        res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${input.barcode}.json`, {
+          headers: { "User-Agent": "GlucoLens/1.0" },
+        });
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+      } catch (err: any) {
+        throw new Error("Could not look up barcode. Check your connection and try again.");
+      }
       const data = await res.json() as any;
+
+      if (!data.product?.nutriments) {
+        throw new Error("Product data is incomplete. Try scanning the photo instead.");
+      }
 
       if (data.status !== 1 || !data.product) {
         throw new Error("Product not found. Try scanning the photo instead.");
@@ -290,9 +312,11 @@ export const foodRouter = router({
       .eq("user_id", ctx.userId)
       .order("logged_at", { ascending: false });
 
+    const escapeCsv = (val: string) => `"${String(val ?? "").replace(/"/g, '""')}"`;
+
     const rows = (data || []).map((r: any) => [
       r.logged_at,
-      `"${r.meal_name}"`,
+      escapeCsv(r.meal_name),
       r.calories,
       r.total_carbs,
       r.total_sugar,
@@ -319,8 +343,3 @@ export const foodRouter = router({
       return { ok: true };
     }),
 });
-
-function tryParse(json: string | null, fallback: any) {
-  if (!json) return fallback;
-  try { return JSON.parse(json); } catch { return fallback; }
-}

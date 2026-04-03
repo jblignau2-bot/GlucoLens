@@ -1,9 +1,7 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { supabase } from "../supabase";
-import OpenAI from "openai";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { openai } from "../openai";
 
 export const mealPlanRouter = router({
   getCurrent: protectedProcedure
@@ -23,73 +21,131 @@ export const mealPlanRouter = router({
         userId: data.user_id,
         weekStart: data.week_start,
         planJson: data.plan_json,
-        dietaryRestrictions: data.dietary_restrictions,
         createdAt: data.created_at ?? null,
       };
     }),
 
   generate: protectedProcedure
-    .input(z.object({
-      weekStart: z.string(),
-      dietaryRestrictions: z.string().optional(),
-      country: z.string().optional(),
-      diabetesType: z.string().optional(),
-      dailyCalorieGoal: z.number().optional(),
-      maxDailyCarbs: z.number().optional(),
-      maxDailySugar: z.number().optional(),
-    }))
+    .input(
+      z.object({
+        weekStart: z.string(),
+        dietaryRestrictions: z.string().optional(),
+        country: z.string().optional(),
+        diabetesType: z.string().optional(),
+        dailyCalorieGoal: z.number().optional(),
+        maxDailyCarbs: z.number().optional(),
+        maxDailySugar: z.number().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      const prompt = `Create a 7-day diabetes-friendly meal plan for a person with ${input.diabetesType ?? "type2"} diabetes from ${input.country ?? "South Africa"}.
-Daily targets: ~${input.dailyCalorieGoal ?? 1800} calories, max ${input.maxDailyCarbs ?? 130}g carbs, max ${input.maxDailySugar ?? 25}g sugar.
-Dietary restrictions: ${input.dietaryRestrictions || "none"}.
+      const country = input.country ?? "South Africa";
+      const diabetesType = input.diabetesType ?? "type2";
+      const calorieGoal = input.dailyCalorieGoal ?? 1800;
+      const maxCarbs = input.maxDailyCarbs ?? 130;
+      const maxSugar = input.maxDailySugar ?? 25;
+      const restrictions = input.dietaryRestrictions || "none";
 
-Respond ONLY with valid JSON (no markdown):
+      // --- 1. Call OpenAI -----------------------------------------------
+      let planData: any;
+      try {
+        const prompt = `You are a certified diabetes nutritionist. Create a detailed 7-day meal plan for a person with ${diabetesType} diabetes living in ${country}.
+
+DAILY TARGETS:
+- Calories: ~${calorieGoal} kcal
+- Max carbs: ${maxCarbs}g
+- Max sugar: ${maxSugar}g
+- Dietary restrictions: ${restrictions}
+
+IMPORTANT:
+- Use meals and ingredients commonly available in ${country}
+- Include realistic cooking instructions
+- List every ingredient with exact gram amounts
+- Each meal must have full macro breakdown
+- Calculate accurate daily totals
+- Keep daily totals within the targets above
+
+Respond ONLY with valid JSON (no markdown, no backticks). Use this EXACT structure:
+
 {
   "days": [
     {
       "day": "Monday",
       "meals": {
-        "breakfast": { "name": "string", "calories": number, "carbs_g": number, "description": "string" },
-        "lunch": { "name": "string", "calories": number, "carbs_g": number, "description": "string" },
-        "dinner": { "name": "string", "calories": number, "carbs_g": number, "description": "string" },
-        "snack": { "name": "string", "calories": number, "carbs_g": number, "description": "string" }
+        "breakfast": {
+          "name": "Meal name",
+          "description": "One-line summary",
+          "calories": 350,
+          "carbs_g": 25,
+          "protein_g": 20,
+          "fat_g": 15,
+          "sugar_g": 5,
+          "fiber_g": 4,
+          "ingredients": [
+            { "name": "Ingredient", "amount": "2 large", "grams": 120 }
+          ],
+          "cookingInstructions": "Step 1. Do this. Step 2. Do that. Step 3. Serve."
+        },
+        "lunch": { ... same structure ... },
+        "dinner": { ... same structure ... },
+        "snack": { ... same structure ... }
+      },
+      "dailyTotals": {
+        "calories": 1750,
+        "carbs_g": 120,
+        "protein_g": 90,
+        "fat_g": 65,
+        "sugar_g": 20,
+        "fiber_g": 28
       }
     }
   ],
-  "weeklyTip": "string"
-}`;
+  "weeklyTip": "A helpful diabetes management tip for the week."
+}
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        max_tokens: 3000,
-        messages: [{ role: "user", content: prompt }],
-      });
+Generate ALL 7 days (Monday through Sunday). Each day MUST have breakfast, lunch, dinner, and snack.`;
 
-      const content = response.choices[0]?.message?.content ?? "{}";
-      // Strip markdown fencing, leading/trailing text, and any BOM
-      let clean = content
-        .replace(/^\uFEFF/, "")
-        .replace(/```json\n?/g, "")
-        .replace(/```\n?/g, "")
-        .trim();
-      // If AI returned text before/after the JSON, extract only the JSON object
-      const firstBrace = clean.indexOf("{");
-      const lastBrace = clean.lastIndexOf("}");
-      if (firstBrace !== -1 && lastBrace > firstBrace) {
-        clean = clean.slice(firstBrace, lastBrace + 1);
-      }
-      let planData: any;
-      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          max_tokens: 10000,
+          temperature: 0.7,
+          messages: [{ role: "user", content: prompt }],
+        });
+
+        const content = response.choices[0]?.message?.content;
+        if (!content) throw new Error("AI returned no meal plan. Please try again.");
+        let clean = content
+          .replace(/^\uFEFF/, "")
+          .replace(/```json\n?/g, "")
+          .replace(/```\n?/g, "")
+          .trim();
+        const firstBrace = clean.indexOf("{");
+        const lastBrace = clean.lastIndexOf("}");
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+          clean = clean.slice(firstBrace, lastBrace + 1);
+        }
         planData = JSON.parse(clean);
-      } catch (parseErr: any) {
-        throw new Error("AI returned an invalid meal plan. Please try again.");
+        if (!planData?.days || !Array.isArray(planData.days) || planData.days.length < 7) {
+          throw new Error("AI returned an incomplete meal plan. Please try again.");
+        }
+      } catch (err: any) {
+        console.error("OpenAI / parse error:", err?.message ?? err);
+        throw new Error(
+          "AI returned an invalid meal plan. Please try again."
+        );
       }
 
+      // Inject user limits into the plan so the frontend can display them
+      planData.userLimits = {
+        dailyCalories: calorieGoal,
+        maxCarbs,
+        maxSugar,
+      };
+
+      // --- 2. Upsert into Supabase -------------------------------------
       const row: Record<string, any> = {
         user_id: ctx.userId,
         week_start: input.weekStart,
         plan_json: JSON.stringify(planData),
-        dietary_restrictions: input.dietaryRestrictions ?? null,
       };
 
       const { data, error } = await supabase
@@ -98,13 +154,16 @@ Respond ONLY with valid JSON (no markdown):
         .select()
         .single();
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("Supabase upsert error:", error.message);
+        throw new Error(error.message);
+      }
+
       return {
         id: data.id,
         userId: data.user_id,
         weekStart: data.week_start,
         planJson: data.plan_json,
-        dietaryRestrictions: data.dietary_restrictions,
         createdAt: data.created_at ?? null,
       };
     }),

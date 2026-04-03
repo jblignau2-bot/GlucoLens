@@ -313,29 +313,17 @@ export default function Onboarding() {
       if (savedData) {
         setProfile(savedData as any);
       }
+      router.replace("/(tabs)");
     } catch (e: any) {
-      // Profile save failed — still populate the store from form data so the
-      // app is usable even without a successful backend write
       console.warn("Profile save failed:", e.message);
-      setProfile({
-        id: 0,
-        firstName: form.firstName,
-        lastName: form.lastName,
-        country: form.country,
-        countryCode: form.countryCode,
-        diabetesType: (form.diabetesType || "type2") as any,
-        dailyCalorieGoal: form.dailyCalorieGoal,
-        maxDailySugar: form.maxDailySugar,
-        maxDailyCarbs: form.maxDailyCarbs,
-        activityLevel: form.activityLevel as any,
-        heightCm: Number(form.heightCm),
-        weightKg: Number(form.weightKg),
-        age: Number(form.age),
-        gender: form.gender as any,
-        onboardingComplete: true,
-      } as any);
+      Toast.show({
+        type: "error",
+        text1: "Save failed",
+        text2: "Your profile could not be saved. Please check your connection and try again.",
+        visibilityTime: 4000,
+      });
+      return; // Don't navigate — stay on onboarding
     }
-    router.replace("/(tabs)");
   }
 
   if (checkingProfile) return (
