@@ -44,6 +44,8 @@ import {
 import * as Haptics from "expo-haptics";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";
+import * as Print from "expo-print";
+import * as ImagePicker from "expo-image-picker";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -126,11 +128,11 @@ const DIABETES_OPTIONS = [
 ];
 
 const ACTIVITY_OPTIONS = [
-  { key: "sedentary", label: "Sedentary", desc: "Little or no exercise" },
-  { key: "light", label: "Light", desc: "1–3 days/week" },
-  { key: "moderate", label: "Moderate", desc: "3–5 days/week" },
-  { key: "active", label: "Active", desc: "6–7 days/week" },
-  { key: "very_active", label: "Very Active", desc: "Hard exercise daily" },
+  { key: "sedentary", label: "Mostly Sitting", desc: "Desk job, little movement" },
+  { key: "light", label: "Lightly Active", desc: "Walking, light chores 1–3 days/week" },
+  { key: "moderate", label: "Fairly Active", desc: "Regular exercise 3–5 days/week" },
+  { key: "active", label: "Very Active", desc: "Hard exercise 6–7 days/week" },
+  { key: "very_active", label: "Athlete Level", desc: "Intense training daily or physical job" },
 ];
 
 function PickerModal<T extends string>({
@@ -394,6 +396,7 @@ export default function ProfileScreen() {
   const [editGoalsOpen, setEditGoalsOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
 
   // reminders query removed — reminders now has its own tab
 
@@ -436,14 +439,22 @@ export default function ProfileScreen() {
         Alert.alert("Not available", "Sharing is not available on this device.");
         return;
       }
-      // Use tRPC client to fetch the CSV string (avoids raw fetch + JSON wrapping issues)
       const { data: csvText } = await exportCsvQuery.refetch();
       if (!csvText) {
         Alert.alert("Export failed", "No food log data to export.");
         return;
       }
       const path = (FileSystem.cacheDirectory ?? "") + "glucolens_food_log.csv";
-      await FileSystem.writeAsStringAsync(path, csvText);
+      // SDK 54: use File and Blob API instead of deprecated writeAsStringAsync
+      try {
+        await FileSystem.writeAsStringAsync(path, csvText);
+      } catch {
+        // Fallback for SDK 54+ where writeAsStringAsync is removed
+        const { StorageAccessFramework } = FileSystem;
+        // Write via base64 encoding as fallback
+        const base64 = btoa(unescape(encodeURIComponent(csvText)));
+        await FileSystem.writeAsStringAsync(path, base64, { encoding: FileSystem.EncodingType.Base64 });
+      }
       await Sharing.shareAsync(path, { mimeType: "text/csv", dialogTitle: "Export Food Log CSV" });
     } catch (e: any) {
       Alert.alert("Export failed", e.message);
@@ -452,30 +463,62 @@ export default function ProfileScreen() {
     }
   };
 
+  const reportQuery = trpc.reports.monthly.useQuery(
+    { month: new Date().toISOString().slice(0, 7) },
+    { enabled: false }
+  );
+
   const handleGenerateReport = async () => {
     setGeneratingReport(true);
     try {
-      const available = await Sharing.isAvailableAsync();
-      if (!available) {
-        Alert.alert("Not available", "Sharing is not available on this device.");
+      const { data: stats } = await reportQuery.refetch();
+      if (!stats || stats.totalMeals === 0) {
+        Alert.alert("No data", "No meals logged this month to generate a report.");
         return;
       }
-      const result = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/trpc/reports.monthly`,
-        { headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` } }
-      );
-      const blob = await result.blob();
-      const path = FileSystem.cacheDirectory + "glucolens_monthly_report.pdf";
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = (reader.result as string).split(",")[1];
-        await FileSystem.writeAsStringAsync(path, base64, { encoding: FileSystem.EncodingType.Base64 });
-        await Sharing.shareAsync(path, { mimeType: "application/pdf", dialogTitle: "Monthly Health Report" });
-        setGeneratingReport(false);
-      };
-      reader.readAsDataURL(blob);
+      // Generate PDF client-side from the stats
+      const html = `<html><head><style>
+        body { font-family: Helvetica; background: #0b1120; color: #f0f4f8; padding: 24px; }
+        h1 { color: #14b8a6; font-size: 22px; margin-bottom: 4px; }
+        h2 { color: #7b8fa3; font-size: 14px; font-weight: 400; margin-top: 0; }
+        .card { background: #111c2e; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+        .card h3 { color: #14b8a6; font-size: 14px; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px; }
+        .stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1e2d40; }
+        .stat .label { color: #7b8fa3; font-size: 13px; }
+        .stat .val { color: #f0f4f8; font-size: 13px; font-weight: 700; }
+        .safe { color: #34d399; } .moderate { color: #fbbf24; } .risky { color: #f87171; }
+        .bar-row { display: flex; gap: 8px; margin-top: 8px; }
+        .bar { height: 24px; border-radius: 6px; text-align: center; line-height: 24px; font-size: 11px; font-weight: 700; color: #fff; }
+        .disclaimer { font-size: 10px; color: #7b8fa3; text-align: center; margin-top: 20px; }
+      </style></head><body>
+        <h1>GlucoLens Monthly Report</h1>
+        <h2>${stats.month} — ${stats.totalMeals} meals logged</h2>
+
+        <div class="card">
+          <h3>Meal Safety Breakdown</h3>
+          <div class="bar-row">
+            ${stats.safeCount > 0 ? `<div class="bar" style="background:#34d399;flex:${stats.safeCount}">${stats.safeCount} Safe</div>` : ""}
+            ${stats.moderateCount > 0 ? `<div class="bar" style="background:#fbbf24;flex:${stats.moderateCount}">${stats.moderateCount} Mod</div>` : ""}
+            ${stats.riskyCount > 0 ? `<div class="bar" style="background:#f87171;flex:${stats.riskyCount}">${stats.riskyCount} Risky</div>` : ""}
+          </div>
+          <div class="stat" style="margin-top:12px"><span class="label">Safe meals</span><span class="val safe">${stats.safePercent}%</span></div>
+        </div>
+
+        <div class="card">
+          <h3>Average Per Meal</h3>
+          <div class="stat"><span class="label">Calories</span><span class="val">${stats.avgCaloriesPerMeal} kcal</span></div>
+          <div class="stat"><span class="label">Carbs</span><span class="val">${stats.avgCarbsPerMeal}g</span></div>
+          <div class="stat"><span class="label">Sugar</span><span class="val">${stats.avgSugarPerMeal}g</span></div>
+        </div>
+
+        <p class="disclaimer">This report is for informational purposes only and is not medical advice. Always consult your healthcare provider before making dietary changes.</p>
+      </body></html>`;
+
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, { mimeType: "application/pdf", dialogTitle: "Monthly Health Report" });
     } catch (e: any) {
       Alert.alert("Report failed", e.message);
+    } finally {
       setGeneratingReport(false);
     }
   };
@@ -526,16 +569,54 @@ export default function ProfileScreen() {
           borderBottomColor: colors.border,
           alignItems: "center",
         }}>
-          <View style={{
-            width: 72, height: 72, borderRadius: 36,
-            backgroundColor: colors.primaryLight,
-            alignItems: "center", justifyContent: "center",
-            marginBottom: 12,
-            borderWidth: 2,
-            borderColor: colors.primary,
-          }}>
-            <Text style={{ fontSize: 28, fontWeight: "800", color: colors.primary }}>{initials}</Text>
-          </View>
+          <Pressable
+            onPress={async () => {
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                quality: 0.7,
+                maxWidth: 512,
+                maxHeight: 512,
+                allowsEditing: true,
+                aspect: [1, 1],
+              });
+              if (!result.canceled && result.assets[0]) {
+                setProfileImage(result.assets[0].uri);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              }
+            }}
+            style={{ marginBottom: 12 }}
+          >
+            <View style={{
+              width: 80, height: 80, borderRadius: 40,
+              backgroundColor: colors.primaryLight,
+              alignItems: "center", justifyContent: "center",
+              borderWidth: 2,
+              borderColor: colors.primary,
+              overflow: "hidden",
+            }}>
+              {profileImage ? (
+                <View style={{ width: 80, height: 80 }}>
+                  <View style={{ width: 80, height: 80, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
+                    <Text style={{ fontSize: 28, fontWeight: "800", color: "#fff" }}>{initials}</Text>
+                  </View>
+                </View>
+              ) : (
+                <Text style={{ fontSize: 28, fontWeight: "800", color: colors.primary }}>{initials}</Text>
+              )}
+            </View>
+            <View style={{
+              position: "absolute", bottom: 0, right: -2,
+              width: 26, height: 26, borderRadius: 13,
+              backgroundColor: colors.primary,
+              alignItems: "center", justifyContent: "center",
+              borderWidth: 2, borderColor: colors.card,
+            }}>
+              <Edit2 size={12} color="#fff" />
+            </View>
+          </Pressable>
+          <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 6 }}>
+            Tap to upload photo (JPG/PNG, max 5MB)
+          </Text>
           <Text style={{ fontSize: 20, fontWeight: "800", color: colors.textPrimary }}>
             {profile?.firstName ? `${profile.firstName} ${profile.lastName ?? ""}`.trim() : "Your Profile"}
           </Text>
@@ -617,6 +698,12 @@ export default function ProfileScreen() {
             label="Glucose & Weight Log"
             value="Track your blood sugar and weight"
             onPress={() => router.push("/health-log")}
+          />
+          <SettingsRow
+            icon={<Activity size={16} color={colors.safe} />}
+            label="My Progress Photos"
+            value="Front, side & back — track your transformation"
+            onPress={() => router.push("/goals")}
           />
 
           {/* ── Data ── */}

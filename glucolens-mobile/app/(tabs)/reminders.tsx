@@ -30,6 +30,7 @@ import {
   Sunrise,
   UtensilsCrossed,
   Moon,
+  RotateCcw,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 
@@ -114,8 +115,18 @@ function AddReminderModal({
   const [label, setLabel] = useState("");
   const [time, setTime] = useState("08:00");
 
-  const mealPresets = ["Breakfast", "Lunch", "Dinner", "Snack", "Pre-Meal Check"];
-  const waterPresets = ["Morning Water", "Midday Water", "Evening Water"];
+  const mealPresets: { label: string; time: string }[] = [
+    { label: "Breakfast", time: "07:30" },
+    { label: "Lunch", time: "12:30" },
+    { label: "Dinner", time: "18:30" },
+    { label: "Snack", time: "15:00" },
+    { label: "Pre-Meal Check", time: "07:00" },
+  ];
+  const waterPresets: { label: string; time: string }[] = [
+    { label: "Morning Water", time: "08:00" },
+    { label: "Midday Water", time: "12:00" },
+    { label: "Evening Water", time: "18:00" },
+  ];
   const presets = type === "meal" ? mealPresets : waterPresets;
 
   const submit = () => {
@@ -202,19 +213,19 @@ function AddReminderModal({
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   {presets.map((p) => (
                     <Pressable
-                      key={p}
-                      onPress={() => { Haptics.selectionAsync(); setLabel(p); }}
+                      key={p.label}
+                      onPress={() => { Haptics.selectionAsync(); setLabel(p.label); setTime(p.time); }}
                       style={{
                         paddingHorizontal: 12,
                         paddingVertical: 6,
                         borderRadius: 20,
-                        backgroundColor: label === p ? colors.primaryLight : colors.background,
+                        backgroundColor: label === p.label ? colors.primaryLight : colors.background,
                         borderWidth: 1,
-                        borderColor: label === p ? colors.primary : colors.border,
+                        borderColor: label === p.label ? colors.primary : colors.border,
                       }}
                     >
-                      <Text style={{ fontSize: 13, color: label === p ? colors.primary : colors.textSecondary, fontWeight: "600" }}>
-                        {p}
+                      <Text style={{ fontSize: 13, color: label === p.label ? colors.primary : colors.textSecondary, fontWeight: "600" }}>
+                        {p.label} · {p.time}
                       </Text>
                     </Pressable>
                   ))}
@@ -282,6 +293,15 @@ function AddReminderModal({
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
+const DEFAULT_REMINDERS = [
+  { type: "meal" as const, label: "Breakfast", time: "07:30" },
+  { type: "meal" as const, label: "Lunch", time: "12:30" },
+  { type: "meal" as const, label: "Dinner", time: "18:30" },
+  { type: "water" as const, label: "Morning Water", time: "08:00" },
+  { type: "water" as const, label: "Midday Water", time: "12:00" },
+  { type: "water" as const, label: "Evening Water", time: "18:00" },
+];
+
 export default function RemindersTabScreen() {
   const insets = useSafeAreaInsets();
   const [addOpen, setAddOpen] = useState(false);
@@ -315,6 +335,32 @@ export default function RemindersTabScreen() {
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate({ id }) },
     ]);
+  };
+
+  const handleResetDefaults = () => {
+    Alert.alert(
+      "Reset to defaults",
+      "This will delete all existing reminders and create the suggested set. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset",
+          style: "destructive",
+          onPress: async () => {
+            // Delete all existing
+            for (const r of (reminders ?? []) as any[]) {
+              await deleteMutation.mutateAsync({ id: r.id }).catch(() => {});
+            }
+            // Add defaults
+            for (const d of DEFAULT_REMINDERS) {
+              await addMutation.mutateAsync(d).catch(() => {});
+            }
+            refetch();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+      ]
+    );
   };
 
   const mealReminders = (reminders ?? []).filter((r: any) => r.type === "meal");
@@ -467,6 +513,30 @@ export default function RemindersTabScreen() {
               Notifications repeat daily at the scheduled time.{"\n"}
               Ensure notifications are enabled in your device settings.
             </Text>
+
+            <Pressable
+              onPress={handleResetDefaults}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                marginTop: 16,
+                paddingVertical: 10,
+                paddingHorizontal: 20,
+                borderRadius: radius.md,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.background,
+                alignSelf: "center",
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <RotateCcw size={14} color={colors.textSecondary} />
+              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textSecondary }}>
+                Reset to Suggested Times
+              </Text>
+            </Pressable>
           </>
         )}
       </ScrollView>

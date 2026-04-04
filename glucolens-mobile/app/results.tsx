@@ -176,41 +176,108 @@ export default function ResultsScreen() {
   // Adjusted nutrition values
   const adj = (v: number) => Math.round(v * portionMultiplier * 10) / 10;
 
+  const [splitCount, setSplitCount] = useState(0);
+
   const logMealMutation = trpc.food.log.useMutation({
     onSuccess: () => {
-      setSaved(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (e) => Alert.alert("Couldn't save", e.message),
   });
 
-  // Auto-save new scans (not when coming from dashboard)
+  // Build a single log payload from result
+  function buildLogPayload(res: any) {
+    return {
+      mealName: res.mealName,
+      identifiedFoods: res.identifiedFoods ?? [],
+      nutrition: {
+        calories: res.calories ?? 0,
+        totalSugar_g: res.totalSugar ?? 0,
+        totalCarbs_g: res.totalCarbs ?? 0,
+        glycemicIndex: res.glycemicIndex ?? 0,
+        glycemicLoad: res.glycemicLoad ?? 0,
+        protein_g: res.protein ?? 0,
+        fat_g: res.fat ?? 0,
+        fiber_g: res.fiber ?? 0,
+      },
+      diabetesRating: {
+        type1: { rating: res.ratingType1 ?? "moderate", reason: res.reasonType1 ?? "" },
+        type2: { rating: res.ratingType2 ?? "moderate", reason: res.reasonType2 ?? "" },
+      },
+      whyRisky: res.whyRisky ?? [],
+      healthierAlternatives: res.healthierAlternatives ?? [],
+      foodsToAvoid: res.foodsToAvoid ?? [],
+      itemBreakdown: res.itemBreakdown ?? [],
+    } as any;
+  }
+
+  // Build individual log payloads from itemBreakdown entries
+  function buildSplitPayloads(res: any) {
+    const items = res.itemBreakdown ?? [];
+    if (items.length <= 1) return null; // nothing to split
+
+    return items.map((item: any) => {
+      const cal = item.calories ?? 0;
+      const sugar = item.sugar_g ?? item.totalSugar ?? 0;
+      const carbs = item.carbs_g ?? item.totalCarbs ?? 0;
+      const prot = item.protein_g ?? item.protein ?? 0;
+      const fatVal = item.fat_g ?? item.fat ?? 0;
+      const fib = item.fiber_g ?? item.fiber ?? 0;
+      const gi = item.glycemicIndex ?? res.glycemicIndex ?? 0;
+      // Rough GL estimate per item
+      const gl = Math.round(carbs * gi / 100);
+      // Rating heuristic per item
+      const rating = sugar > 15 || carbs > 45 ? "risky" : sugar > 8 || carbs > 25 ? "moderate" : "safe";
+
+      return {
+        mealName: item.name ?? item.food ?? "Unknown item",
+        identifiedFoods: [item.name ?? item.food ?? "Unknown"],
+        nutrition: {
+          calories: Math.round(cal),
+          totalSugar_g: Math.round(sugar * 10) / 10,
+          totalCarbs_g: Math.round(carbs * 10) / 10,
+          glycemicIndex: gi,
+          glycemicLoad: gl,
+          protein_g: Math.round(prot * 10) / 10,
+          fat_g: Math.round(fatVal * 10) / 10,
+          fiber_g: Math.round(fib * 10) / 10,
+        },
+        diabetesRating: {
+          type1: { rating, reason: `${Math.round(carbs)}g carbs — plan insulin accordingly.` },
+          type2: { rating, reason: sugar > 15 ? `High sugar (${Math.round(sugar)}g).` : `${Math.round(sugar)}g sugar per serving.` },
+        },
+        whyRisky: sugar > 15 ? [`High sugar: ${Math.round(sugar)}g`] : [],
+        healthierAlternatives: res.healthierAlternatives ?? [],
+        foodsToAvoid: res.foodsToAvoid ?? [],
+        itemBreakdown: [item],
+      } as any;
+    });
+  }
+
+  // Auto-save new scans — split multi-item meals into separate logs
   useEffect(() => {
     if (result && !params.logId && !autoSavedRef.current && !saved && !logMealMutation.isPending) {
       autoSavedRef.current = true;
-      // Re-nest into the format the food.log API expects
-      logMealMutation.mutate({
-        mealName: result.mealName,
-        identifiedFoods: result.identifiedFoods ?? [],
-        nutrition: {
-          calories: result.calories ?? 0,
-          totalSugar_g: result.totalSugar ?? 0,
-          totalCarbs_g: result.totalCarbs ?? 0,
-          glycemicIndex: result.glycemicIndex ?? 0,
-          glycemicLoad: result.glycemicLoad ?? 0,
-          protein_g: result.protein ?? 0,
-          fat_g: result.fat ?? 0,
-          fiber_g: result.fiber ?? 0,
-        },
-        diabetesRating: {
-          type1: { rating: result.ratingType1 ?? "moderate", reason: result.reasonType1 ?? "" },
-          type2: { rating: result.ratingType2 ?? "moderate", reason: result.reasonType2 ?? "" },
-        },
-        whyRisky: result.whyRisky ?? [],
-        healthierAlternatives: result.healthierAlternatives ?? [],
-        foodsToAvoid: result.foodsToAvoid ?? [],
-        itemBreakdown: result.itemBreakdown ?? [],
-      } as any);
+
+      const splitPayloads = buildSplitPayloads(result);
+      if (splitPayloads && splitPayloads.length > 1) {
+        // Log each item separately
+        setSplitCount(splitPayloads.length);
+        let completed = 0;
+        splitPayloads.forEach((payload: any) => {
+          logMealMutation.mutate(payload, {
+            onSuccess: () => {
+              completed++;
+              if (completed === splitPayloads.length) setSaved(true);
+            },
+          });
+        });
+      } else {
+        // Single item — log as combined meal
+        logMealMutation.mutate(buildLogPayload(result), {
+          onSuccess: () => setSaved(true),
+        });
+      }
     }
   }, [result, params.logId, saved, logMealMutation.isPending]);
 
@@ -335,37 +402,44 @@ export default function ResultsScreen() {
 
         <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
 
-          {/* ── Portion adjuster with glass effect and teal buttons ── */}
+          {/* ── Portion adjuster with size labels ── */}
           <View style={{
-            flexDirection: "row",
-            alignItems: "center",
             backgroundColor: colors.glass,
             borderRadius: radius.lg,
             borderWidth: 1,
             borderColor: colors.glassBorder,
             padding: 14,
-            gap: 12,
             marginBottom: 16,
             ...shadow.card,
           }}>
-            <Text style={{ flex: 1, fontSize: 14, fontWeight: "600", color: colors.textPrimary }}>
-              Portion size
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <Text style={{ flex: 1, fontSize: 14, fontWeight: "600", color: colors.textPrimary }}>
+                Portion size
+              </Text>
+              <Pressable
+                onPress={() => { if (portionMultiplier > 0.25) { setPortionMultiplier((p) => Math.round((p - 0.25) * 100) / 100); Haptics.selectionAsync(); } }}
+                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primaryLight, alignItems: "center", justifyContent: "center" }}
+              >
+                <Minus size={14} color={colors.primary} />
+              </Pressable>
+              <Text style={{ fontSize: 16, fontWeight: "800", color: colors.primary, minWidth: 44, textAlign: "center" }}>
+                {portionMultiplier === 1 ? "1×" : `${portionMultiplier}×`}
+              </Text>
+              <Pressable
+                onPress={() => { if (portionMultiplier < 3) { setPortionMultiplier((p) => Math.round((p + 0.25) * 100) / 100); Haptics.selectionAsync(); } }}
+                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primaryLight, alignItems: "center", justifyContent: "center" }}
+              >
+                <Plus size={14} color={colors.primary} />
+              </Pressable>
+            </View>
+            <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 6 }}>
+              {portionMultiplier <= 0.5 ? "Small — kids portion or side dish"
+                : portionMultiplier <= 0.75 ? "Light — snack-sized or appetiser"
+                : portionMultiplier <= 1 ? "Standard — typical restaurant serving"
+                : portionMultiplier <= 1.5 ? "Large — generous home-cooked plate"
+                : portionMultiplier <= 2 ? "Extra large — double serving"
+                : "Sharing size — family or buffet portion"}
             </Text>
-            <Pressable
-              onPress={() => { if (portionMultiplier > 0.25) { setPortionMultiplier((p) => Math.round((p - 0.25) * 100) / 100); Haptics.selectionAsync(); } }}
-              style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primaryLight, alignItems: "center", justifyContent: "center" }}
-            >
-              <Minus size={14} color={colors.primary} />
-            </Pressable>
-            <Text style={{ fontSize: 16, fontWeight: "800", color: colors.primary, minWidth: 44, textAlign: "center" }}>
-              {portionMultiplier === 1 ? "1×" : `${portionMultiplier}×`}
-            </Text>
-            <Pressable
-              onPress={() => { if (portionMultiplier < 3) { setPortionMultiplier((p) => Math.round((p + 0.25) * 100) / 100); Haptics.selectionAsync(); } }}
-              style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primaryLight, alignItems: "center", justifyContent: "center" }}
-            >
-              <Plus size={14} color={colors.primary} />
-            </Pressable>
           </View>
 
           {/* ── Nutrition card ── */}
@@ -452,26 +526,20 @@ export default function ResultsScreen() {
               onPress={() => {
                 if (!autoSavedRef.current) {
                   autoSavedRef.current = true;
-                  logMealMutation.mutate({
-                    mealName: result.mealName,
-                    calories: result.calories,
-                    totalSugar: result.totalSugar,
-                    totalCarbs: result.totalCarbs,
-                    glycemicIndex: result.glycemicIndex,
-                    glycemicLoad: result.glycemicLoad,
-                    protein: result.protein,
-                    fat: result.fat,
-                    fiber: result.fiber,
-                    ratingType1: result.ratingType1,
-                    ratingType2: result.ratingType2,
-                    reasonType1: result.reasonType1,
-                    reasonType2: result.reasonType2,
-                    whyRisky: result.whyRisky,
-                    healthierAlternatives: result.healthierAlternatives,
-                    foodsToAvoid: result.foodsToAvoid,
-                    identifiedFoods: result.identifiedFoods,
-                    itemBreakdown: result.itemBreakdown,
-                  });
+                  const splitPayloads = buildSplitPayloads(result);
+                  if (splitPayloads && splitPayloads.length > 1) {
+                    setSplitCount(splitPayloads.length);
+                    let completed = 0;
+                    splitPayloads.forEach((payload: any) => {
+                      logMealMutation.mutate(payload, {
+                        onSuccess: () => { completed++; if (completed === splitPayloads.length) setSaved(true); },
+                      });
+                    });
+                  } else {
+                    logMealMutation.mutate(buildLogPayload(result), {
+                      onSuccess: () => setSaved(true),
+                    });
+                  }
                 }
               }}
               disabled={logMealMutation.isPending}
@@ -505,7 +573,9 @@ export default function ResultsScreen() {
               borderColor: colors.safe,
             }}>
               <CheckCircle size={18} color={colors.safe} />
-              <Text style={{ color: colors.safe, fontWeight: "700", fontSize: 15 }}>Saved to your log</Text>
+              <Text style={{ color: colors.safe, fontWeight: "700", fontSize: 15 }}>
+                {splitCount > 1 ? `Logged as ${splitCount} separate items` : "Saved to your log"}
+              </Text>
             </View>
           )}
         </View>

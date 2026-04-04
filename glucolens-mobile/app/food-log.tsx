@@ -19,15 +19,18 @@ import {
   RefreshControl,
   TextInput,
   Alert,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAnalysisStore } from "@/stores/analysisStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { colors, radius, shadow } from "@/constants/tokens";
-import { ArrowLeft, Search, Utensils, ChevronRight, Filter } from "lucide-react-native";
+import { ArrowLeft, Search, Utensils, ChevronRight, Filter, Pencil } from "lucide-react-native";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import * as Haptics from "expo-haptics";
 
@@ -70,7 +73,7 @@ function ratingBg(r?: string | null) {
   return colors.moderateBg;
 }
 
-// ─── Meal row ─────────────────────────────────────────────────────────────────
+// ─── Edit meal modal ────────────────────────────────────────────────────────
 
 interface MealEntry {
   id: number;
@@ -78,21 +81,154 @@ interface MealEntry {
   calories: number | null;
   totalCarbs: number | null;
   totalSugar: number | null;
+  glycemicIndex?: number | null;
+  glycemicLoad?: number | null;
+  protein?: number | null;
+  fat?: number | null;
+  fiber?: number | null;
   ratingType1: string | null;
   ratingType2: string | null;
   loggedAt: string;
 }
+
+function EditMealModal({
+  meal,
+  onClose,
+  onSave,
+  saving,
+}: {
+  meal: MealEntry | null;
+  onClose: () => void;
+  onSave: (id: number, updates: Record<string, number | string>) => void;
+  saving: boolean;
+}) {
+  const [name, setName] = useState("");
+  const [cal, setCal] = useState("");
+  const [sugar, setSugar] = useState("");
+  const [carbs, setCarbs] = useState("");
+  const [protein, setProtein] = useState("");
+  const [fat, setFat] = useState("");
+  const [fiber, setFiber] = useState("");
+
+  useEffect(() => {
+    if (meal) {
+      setName(meal.mealName ?? "");
+      setCal(String(Math.round(meal.calories ?? 0)));
+      setSugar(String(Math.round((meal.totalSugar ?? 0) * 10) / 10));
+      setCarbs(String(Math.round((meal.totalCarbs ?? 0) * 10) / 10));
+      setProtein(String(Math.round((meal.protein ?? 0) * 10) / 10));
+      setFat(String(Math.round((meal.fat ?? 0) * 10) / 10));
+      setFiber(String(Math.round((meal.fiber ?? 0) * 10) / 10));
+    }
+  }, [meal]);
+
+  if (!meal) return null;
+
+  const fields = [
+    { label: "Meal name", value: name, set: setName, kbd: "default" as const },
+    { label: "Calories (kcal)", value: cal, set: setCal, kbd: "numeric" as const },
+    { label: "Sugar (g)", value: sugar, set: setSugar, kbd: "numeric" as const },
+    { label: "Carbs (g)", value: carbs, set: setCarbs, kbd: "numeric" as const },
+    { label: "Protein (g)", value: protein, set: setProtein, kbd: "numeric" as const },
+    { label: "Fat (g)", value: fat, set: setFat, kbd: "numeric" as const },
+    { label: "Fibre (g)", value: fiber, set: setFiber, kbd: "numeric" as const },
+  ];
+
+  return (
+    <Modal visible={!!meal} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlay }}>
+          <View style={{
+            backgroundColor: colors.card,
+            borderTopLeftRadius: 24, borderTopRightRadius: 24,
+            padding: 24, paddingBottom: 40, gap: 12,
+            borderTopWidth: 1, borderTopColor: colors.border,
+            maxHeight: "80%",
+          }}>
+            <Text style={{ fontSize: 18, fontWeight: "800", color: colors.textPrimary, marginBottom: 4 }}>
+              Edit Meal
+            </Text>
+            <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>
+              Correct any values the AI got wrong — your daily summary will update automatically.
+            </Text>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {fields.map(({ label, value, set, kbd }) => (
+                <View key={label} style={{ marginBottom: 10 }}>
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: colors.textSecondary, marginBottom: 4 }}>
+                    {label}
+                  </Text>
+                  <TextInput
+                    value={value}
+                    onChangeText={set}
+                    keyboardType={kbd}
+                    style={{
+                      backgroundColor: colors.background,
+                      borderRadius: radius.md,
+                      padding: 10, fontSize: 15, fontWeight: "600",
+                      color: colors.textPrimary,
+                      borderWidth: 1, borderColor: colors.border,
+                    }}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 8 }}>
+              <Pressable onPress={onClose} style={{
+                flex: 1, height: 48, borderRadius: radius.lg,
+                alignItems: "center", justifyContent: "center",
+                backgroundColor: colors.background,
+                borderWidth: 1, borderColor: colors.border,
+              }}>
+                <Text style={{ fontWeight: "700", color: colors.textSecondary }}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  onSave(meal.id, {
+                    mealName: name.trim(),
+                    calories: Number(cal) || 0,
+                    totalSugar: Number(sugar) || 0,
+                    totalCarbs: Number(carbs) || 0,
+                    protein: Number(protein) || 0,
+                    fat: Number(fat) || 0,
+                    fiber: Number(fiber) || 0,
+                  });
+                }}
+                disabled={saving}
+                style={({ pressed }) => ({
+                  flex: 2, height: 48, borderRadius: radius.lg,
+                  alignItems: "center", justifyContent: "center",
+                  backgroundColor: colors.primary,
+                  opacity: pressed || saving ? 0.85 : 1,
+                })}
+              >
+                {saving ? <ActivityIndicator color="#fff" /> : (
+                  <Text style={{ fontWeight: "700", color: "#fff", fontSize: 15 }}>Save Changes</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// ─── Meal row ─────────────────────────────────────────────────────────────────
 
 function MealRow({
   meal,
   diabetesType,
   onPress,
   onLongPress,
+  onEdit,
 }: {
   meal: MealEntry;
   diabetesType: string;
   onPress: () => void;
   onLongPress: () => void;
+  onEdit: () => void;
 }) {
   const rating = diabetesType === "type1" ? meal.ratingType1 : meal.ratingType2;
   return (
@@ -159,6 +295,14 @@ function MealRow({
           {format(new Date(meal.loggedAt), "EEE d MMM · h:mm a")}
         </Text>
       </View>
+
+      <Pressable
+        onPress={(e) => { e.stopPropagation?.(); onEdit(); }}
+        hitSlop={8}
+        style={{ padding: 6 }}
+      >
+        <Pencil size={14} color={colors.textSecondary} />
+      </Pressable>
 
       <View
         style={{
@@ -275,6 +419,7 @@ export default function FoodLogScreen() {
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [editingMeal, setEditingMeal] = useState<MealEntry | null>(null);
 
   const dateRange = getDateRange(dateFilter);
   const diabetesType = profile?.diabetesType ?? "type2";
@@ -282,6 +427,15 @@ export default function FoodLogScreen() {
   const { data: meals, refetch, isLoading } = trpc.food.list.useQuery({
     ...dateRange,
     limit: 100,
+  });
+
+  const updateMutation = trpc.food.update.useMutation({
+    onSuccess: () => {
+      refetch();
+      setEditingMeal(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (e) => Alert.alert("Error", e.message || "Failed to update meal"),
   });
 
   const deleteMutation = trpc.food.delete.useMutation({
@@ -362,6 +516,13 @@ export default function FoodLogScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <EditMealModal
+        meal={editingMeal}
+        onClose={() => setEditingMeal(null)}
+        onSave={(id, updates) => updateMutation.mutate({ id, ...updates } as any)}
+        saving={updateMutation.isPending}
+      />
+
       {/* Header */}
       <View
         style={{
@@ -616,6 +777,7 @@ export default function FoodLogScreen() {
                     diabetesType={diabetesType}
                     onPress={() => openMeal(m)}
                     onLongPress={() => handleDeleteMeal(m)}
+                    onEdit={() => setEditingMeal(m)}
                   />
                 ))}
               </View>
