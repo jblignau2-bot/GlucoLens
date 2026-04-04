@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0d9488"
+      "backgroundColor": "#3DA39B"
     },
     "ios": {
       "supportsTablet": false,
@@ -24,7 +24,7 @@
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#0d9488"
+        "backgroundColor": "#3DA39B"
       },
       "package": "com.glucolens.app",
       "permissions": [
