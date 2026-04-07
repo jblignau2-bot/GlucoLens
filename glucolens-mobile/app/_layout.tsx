@@ -9,6 +9,7 @@ import { colors } from "@/constants/tokens";
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { supabase } from "@/lib/supabase";
+import { SplashScreen } from "@/components/SplashScreen";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,23 +56,17 @@ export default function RootLayout() {
   // session. Without this gate, tRPC queries fire immediately on mount
   // with no Authorization header and get "not authenticated" errors.
   const [authReady, setAuthReady] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
     ensureSession().finally(() => setAuthReady(true));
   }, []);
 
-  if (!authReady) {
+  if (!authReady || !splashDone) {
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: colors.background,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <ActivityIndicator color={colors.primary} size="large" />
-      </View>
+      <SplashScreen
+        onFinish={() => setSplashDone(true)}
+      />
     );
   }
 
