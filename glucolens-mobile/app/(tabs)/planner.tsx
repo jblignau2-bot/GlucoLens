@@ -67,6 +67,10 @@ interface Ingredient {
   name: string;
   amount: string;
   grams: number;
+  calories?: number;
+  carbs_g?: number;
+  sugar_g?: number;
+  fat_g?: number;
 }
 
 interface MealItem {
@@ -80,6 +84,9 @@ interface MealItem {
   fiber_g: number;
   ingredients: Ingredient[];
   cookingInstructions: string;
+  cookingTime?: string;
+  estimatedCost?: number;
+  store?: string;
 }
 
 interface DailyTotals {
@@ -172,6 +179,17 @@ const GEN_STATUSES = [
 ];
 
 function parseMeal(raw: any): MealItem {
+  const ingredients: Ingredient[] = Array.isArray(raw?.ingredients)
+    ? raw.ingredients.map((ing: any) => ({
+        name: ing.name ?? "",
+        amount: ing.amount ?? "",
+        grams: ing.grams ?? 0,
+        calories: ing.calories ?? undefined,
+        carbs_g: ing.carbs_g ?? ing.carbs ?? undefined,
+        sugar_g: ing.sugar_g ?? ing.sugar ?? undefined,
+        fat_g: ing.fat_g ?? ing.fat ?? undefined,
+      }))
+    : [];
   return {
     name: raw?.name ?? "Meal",
     description: raw?.description,
@@ -181,9 +199,12 @@ function parseMeal(raw: any): MealItem {
     fat_g: raw?.fat_g ?? raw?.fat ?? 0,
     sugar_g: raw?.sugar_g ?? raw?.sugar ?? 0,
     fiber_g: raw?.fiber_g ?? raw?.fiber ?? 0,
-    ingredients: Array.isArray(raw?.ingredients) ? raw.ingredients : [],
+    ingredients,
     cookingInstructions:
       raw?.cookingInstructions ?? raw?.cooking_instructions ?? "",
+    cookingTime: raw?.cookingTime ?? raw?.cooking_time ?? undefined,
+    estimatedCost: raw?.estimatedCost ?? raw?.estimated_cost ?? undefined,
+    store: raw?.store ?? undefined,
   };
 }
 
@@ -583,38 +604,78 @@ function MealCard({ slot, meal }: { slot: keyof typeof MEAL_ICONS; meal: MealIte
                 <View
                   key={i}
                   style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    paddingVertical: 5,
+                    paddingVertical: 8,
                     borderBottomWidth: i < meal.ingredients.length - 1 ? 1 : 0,
                     borderBottomColor: colors.border,
                   }}
                 >
-                  <Text style={{ fontSize: 13, color: colors.textPrimary, flex: 1 }}>
-                    {ing.name}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: colors.textSecondary, marginLeft: 8 }}>
-                    {ing.amount}
-                  </Text>
-                  <View
-                    style={{
-                      backgroundColor: colors.primaryLight,
-                      paddingHorizontal: 6,
-                      paddingVertical: 2,
-                      borderRadius: 4,
-                      marginLeft: 8,
-                    }}
-                  >
-                    <Text style={{ fontSize: 10, fontWeight: "700", color: colors.primary }}>
-                      {ing.grams}g
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <Text style={{ fontSize: 13, color: colors.textPrimary, flex: 1, fontWeight: "600" }}>
+                      {ing.name}
                     </Text>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginLeft: 8 }}>
+                      {ing.amount}
+                    </Text>
+                    <View style={{ backgroundColor: colors.primaryLight, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 8 }}>
+                      <Text style={{ fontSize: 10, fontWeight: "700", color: colors.primary }}>{ing.grams}g</Text>
+                    </View>
                   </View>
+                  {/* Per-ingredient nutrition pills */}
+                  {(ing.calories != null || ing.carbs_g != null || ing.sugar_g != null || ing.fat_g != null) && (
+                    <View style={{ flexDirection: "row", gap: 6, marginTop: 5, flexWrap: "wrap" }}>
+                      {ing.calories != null && (
+                        <View style={{ backgroundColor: "rgba(34,197,94,0.15)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ fontSize: 9, fontWeight: "700", color: "#22c55e" }}>{Math.round(ing.calories)} cal</Text>
+                        </View>
+                      )}
+                      {ing.carbs_g != null && (
+                        <View style={{ backgroundColor: "rgba(59,130,246,0.15)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ fontSize: 9, fontWeight: "700", color: "#3b82f6" }}>{Math.round(ing.carbs_g)}g carbs</Text>
+                        </View>
+                      )}
+                      {ing.sugar_g != null && (
+                        <View style={{ backgroundColor: "rgba(245,158,11,0.15)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ fontSize: 9, fontWeight: "700", color: "#f59e0b" }}>{Math.round(ing.sugar_g)}g sugar</Text>
+                        </View>
+                      )}
+                      {ing.fat_g != null && (
+                        <View style={{ backgroundColor: "rgba(239,68,68,0.15)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ fontSize: 9, fontWeight: "700", color: "#ef4444" }}>{Math.round(ing.fat_g)}g fat</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </View>
               ))}
             </View>
           )}
         </>
+      )}
+
+      {/* Estimated Cost & Store */}
+      {(meal.estimatedCost != null || meal.store) && (
+        <View style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 14,
+          paddingVertical: 8,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          backgroundColor: colors.cardAlt,
+        }}>
+          {meal.estimatedCost != null && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <Text style={{ fontSize: 12, color: colors.textSecondary }}>Est. cost:</Text>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>R{meal.estimatedCost.toFixed(0)}</Text>
+            </View>
+          )}
+          {meal.store && (
+            <View style={{ backgroundColor: colors.primaryLight, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+              <Text style={{ fontSize: 10, fontWeight: "700", color: colors.primary }}>{meal.store}</Text>
+            </View>
+          )}
+        </View>
       )}
 
       {/* Expandable: Cooking Instructions */}
@@ -641,6 +702,11 @@ function MealCard({ slot, meal }: { slot: keyof typeof MEAL_ICONS; meal: MealIte
               <Text style={{ fontSize: 12, fontWeight: "600", color: colors.textPrimary }}>
                 Cooking Instructions
               </Text>
+              {meal.cookingTime && (
+                <View style={{ backgroundColor: "rgba(245,158,11,0.15)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 9, fontWeight: "700", color: "#f59e0b" }}>{meal.cookingTime}</Text>
+                </View>
+              )}
             </View>
             {showInstructions ? (
               <ChevronUp size={14} color={colors.textSecondary} />
@@ -650,9 +716,24 @@ function MealCard({ slot, meal }: { slot: keyof typeof MEAL_ICONS; meal: MealIte
           </Pressable>
           {showInstructions && (
             <View style={{ paddingHorizontal: 14, paddingBottom: 12, backgroundColor: colors.cardAlt }}>
-              <Text style={{ fontSize: 13, color: colors.textPrimary, lineHeight: 20 }}>
-                {meal.cookingInstructions}
-              </Text>
+              {meal.cookingInstructions
+                .split(/(?:\r?\n)+|(?:\d+\.\s)/)
+                .filter((s: string) => s.trim().length > 0)
+                .map((step: string, idx: number) => (
+                  <View key={idx} style={{ flexDirection: "row", marginBottom: 8, gap: 8 }}>
+                    <View style={{
+                      width: 22, height: 22, borderRadius: 11,
+                      backgroundColor: colors.primaryLight,
+                      alignItems: "center", justifyContent: "center",
+                      marginTop: 1,
+                    }}>
+                      <Text style={{ fontSize: 10, fontWeight: "800", color: colors.primary }}>{idx + 1}</Text>
+                    </View>
+                    <Text style={{ fontSize: 13, color: colors.textPrimary, lineHeight: 20, flex: 1 }}>
+                      {step.trim()}
+                    </Text>
+                  </View>
+                ))}
             </View>
           )}
         </>
