@@ -141,12 +141,12 @@ function QuickAction({ icon: Icon, label, onPress, iconColor }: {
       onPress={onPress}
       style={({ pressed }) => ({
         flex: 1,
-        minWidth: (SCREEN_WIDTH - 56) / 2 - 5,
-        maxWidth: (SCREEN_WIDTH - 56) / 2 - 5,
+        minWidth: (SCREEN_WIDTH - 42) / 2 - 5,
+        maxWidth: (SCREEN_WIDTH - 42) / 2 - 5,
         backgroundColor: colors.card,
-        borderRadius: radius.lg,
-        paddingVertical: 20,
-        paddingHorizontal: 12,
+        borderRadius: radius.xl,
+        paddingVertical: 24,
+        paddingHorizontal: 14,
         alignItems: "center",
         justifyContent: "center",
         gap: 10,
@@ -155,8 +155,10 @@ function QuickAction({ icon: Icon, label, onPress, iconColor }: {
         opacity: pressed ? 0.8 : 1,
       })}
     >
-      <Icon size={28} color={iconColor || colors.primary} strokeWidth={2} />
-      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textSecondary, textAlign: "center" }}>{label}</Text>
+      <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primaryLight, alignItems: "center", justifyContent: "center" }}>
+        <Icon size={24} color={iconColor || colors.primary} strokeWidth={2} />
+      </View>
+      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textPrimary, textAlign: "center" }}>{label}</Text>
     </Pressable>
   );
 }
@@ -307,15 +309,14 @@ export default function DashboardScreen() {
         </View>
 
         {/* Quick Actions Grid */}
-        <View style={{ marginHorizontal: 20, marginBottom: 20 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700", color: colors.textPrimary, marginBottom: 12 }}>Quick Actions</Text>
+        <View style={{ marginHorizontal: 16, marginBottom: 20 }}>
+          <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 12 }}>Quick Actions</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "space-between" }}>
-            <QuickAction icon={LayoutGrid} label="Planner" onPress={() => router.push("/(tabs)/planner")} />
+            <QuickAction icon={LayoutGrid} label="Meal Planner" onPress={() => router.push("/(tabs)/planner")} />
             <QuickAction icon={Camera} label="Scan Meal" onPress={() => router.push("/(tabs)/scan")} />
-            <QuickAction icon={BookOpen} label="Guide" onPress={() => router.push("/(tabs)/reminders")} />
+            <QuickAction icon={BookOpen} label="Glucose Guide" onPress={() => router.push("/(tabs)/reminders")} />
             <QuickAction icon={UtensilsCrossed} label="Food Diary" onPress={() => router.push("/food-log")} />
-            <QuickAction icon={TrendingUp} label="My Progress" onPress={() => router.push("/profile-edit")} />
-            <QuickAction icon={User} label="Profile" onPress={() => router.push("/(tabs)/profile")} />
+            <QuickAction icon={TrendingUp} label="My Progress" onPress={() => router.push("/progress")} />
           </View>
         </View>
 

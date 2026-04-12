@@ -40,6 +40,8 @@ import {
   Edit2,
   Save,
   X,
+  Pill,
+  AlertTriangle,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import * as Sharing from "expo-sharing";
@@ -523,6 +525,21 @@ export default function ProfileScreen() {
     }
   };
 
+  const [allergies, setAllergies] = useState(profile?.allergies ?? "");
+  const [medication, setMedication] = useState(profile?.medication ?? "");
+  const [healthDirty, setHealthDirty] = useState(false);
+
+  useEffect(() => {
+    setAllergies(profile?.allergies ?? "");
+    setMedication(profile?.medication ?? "");
+  }, [profile?.allergies, profile?.medication]);
+
+  const handleSaveHealth = () => {
+    updateProfileMutation.mutate({ allergies, medication } as any);
+    setHealthDirty(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
   const diabetesLabel = DIABETES_OPTIONS.find((o) => o.key === profile?.diabetesType)?.label ?? "Not set";
   const activityLabel = ACTIVITY_OPTIONS.find((o) => o.key === profile?.activityLevel)?.label ?? "Not set";
 
@@ -699,12 +716,89 @@ export default function ProfileScreen() {
             value="Track your blood sugar and weight"
             onPress={() => router.push("/health-log")}
           />
-          <SettingsRow
-            icon={<Activity size={16} color={colors.safe} />}
-            label="My Progress Photos"
-            value="Front, side & back — track your transformation"
-            onPress={() => router.push("/goals")}
-          />
+
+          {/* ── Allergies & Medication (feeds into AI meal planning) ── */}
+          <SectionHeader title="Allergies & Medication" />
+          <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 10, paddingHorizontal: 4, lineHeight: 16 }}>
+            GlucoBot uses this info to personalise your meal plans and avoid harmful ingredients.
+          </Text>
+          <View style={{
+            backgroundColor: colors.card,
+            borderRadius: radius.lg,
+            borderWidth: 1,
+            borderColor: colors.border,
+            padding: 14,
+            marginBottom: 8,
+          }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <AlertTriangle size={14} color="#f59e0b" />
+              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textPrimary }}>Allergies & Intolerances</Text>
+            </View>
+            <TextInput
+              value={allergies}
+              onChangeText={(v) => { setAllergies(v); setHealthDirty(true); }}
+              placeholder="e.g. peanuts, shellfish, lactose, gluten…"
+              placeholderTextColor={colors.textSecondary}
+              multiline
+              style={{
+                backgroundColor: colors.background,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: radius.md,
+                padding: 12,
+                color: colors.textPrimary,
+                fontSize: 14,
+                minHeight: 60,
+                textAlignVertical: "top",
+              }}
+            />
+          </View>
+          <View style={{
+            backgroundColor: colors.card,
+            borderRadius: radius.lg,
+            borderWidth: 1,
+            borderColor: colors.border,
+            padding: 14,
+            marginBottom: 8,
+          }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <Pill size={14} color={colors.primary} />
+              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textPrimary }}>Current Medication</Text>
+            </View>
+            <TextInput
+              value={medication}
+              onChangeText={(v) => { setMedication(v); setHealthDirty(true); }}
+              placeholder="e.g. Metformin 500mg, Insulin Lantus…"
+              placeholderTextColor={colors.textSecondary}
+              multiline
+              style={{
+                backgroundColor: colors.background,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: radius.md,
+                padding: 12,
+                color: colors.textPrimary,
+                fontSize: 14,
+                minHeight: 60,
+                textAlignVertical: "top",
+              }}
+            />
+          </View>
+          {healthDirty && (
+            <Pressable
+              onPress={handleSaveHealth}
+              style={({ pressed }) => ({
+                backgroundColor: colors.primary,
+                borderRadius: radius.md,
+                paddingVertical: 12,
+                alignItems: "center",
+                opacity: pressed ? 0.8 : 1,
+                marginBottom: 8,
+              })}
+            >
+              <Text style={{ fontSize: 14, fontWeight: "700", color: "#0b1120" }}>Save Health Info</Text>
+            </Pressable>
+          )}
 
           {/* ── Data ── */}
           <SectionHeader title="Data & Reports" />
