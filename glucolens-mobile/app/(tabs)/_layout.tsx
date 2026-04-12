@@ -1,8 +1,8 @@
 import { Tabs } from "expo-router";
-import { View, Animated } from "react-native";
+import { View, Animated, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useRef } from "react";
-import { Home, ClipboardList, Camera, BarChart3, User } from "lucide-react-native";
+import { Home, LayoutGrid, Camera, BookOpen, User } from "lucide-react-native";
 import { colors } from "@/constants/tokens";
 import { trpc } from "@/lib/trpc";
 import { useProfileStore } from "@/stores/profileStore";
@@ -22,18 +22,15 @@ function ScanTabIcon({ focused }: { focused: boolean }) {
     return () => pulse.stop();
   }, [glowAnim]);
 
-  const glowOpacity = glowAnim;
-  const glowRadius = glowAnim.interpolate({ inputRange: [0.4, 1], outputRange: [10, 22] });
-
   return (
-    <View style={{ alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+    <View style={{ alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
       {/* Outer glow ring */}
       <Animated.View
         style={{
           position: "absolute",
-          width: 68,
-          height: 68,
-          borderRadius: 34,
+          width: 70,
+          height: 70,
+          borderRadius: 35,
           backgroundColor: colors.primary,
           opacity: glowAnim.interpolate({ inputRange: [0.4, 1], outputRange: [0.15, 0.35] }),
         }}
@@ -49,11 +46,11 @@ function ScanTabIcon({ focused }: { focused: boolean }) {
           shadowColor: colors.primary,
           shadowOffset: { width: 0, height: 0 },
           shadowOpacity: 0.8,
-          shadowRadius: 16,
+          shadowRadius: 20,
           elevation: 16,
         }}
       >
-        <Camera size={26} color="#fff" strokeWidth={2.5} />
+        <Camera size={26} color="#0b1120" strokeWidth={2.5} />
       </View>
     </View>
   );
@@ -66,7 +63,7 @@ export default function TabsLayout() {
 
   // Hydrate profile store from API on mount (covers app restart)
   const { data: profileData } = trpc.profile.get.useQuery(undefined, {
-    enabled: !existingProfile, // only fetch if store is empty
+    enabled: !existingProfile,
   });
 
   useEffect(() => {
@@ -80,14 +77,50 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarInactiveTintColor: "#64748b",
         tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: 56 + insets.bottom,
+          backgroundColor: "transparent",
+          borderTopWidth: 0,
+          elevation: 0,
+          height: 72 + insets.bottom,
           paddingBottom: insets.bottom,
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
         },
+        tabBarBackground: () => (
+          <View style={StyleSheet.absoluteFill}>
+            {/* Left panel */}
+            <View
+              style={{
+                position: "absolute",
+                left: 10,
+                right: "55%",
+                bottom: insets.bottom + 8,
+                height: 56,
+                backgroundColor: "rgba(13,21,37,0.95)",
+                borderRadius: 18,
+                borderWidth: 1,
+                borderColor: "rgba(30,41,59,0.6)",
+              }}
+            />
+            {/* Right panel */}
+            <View
+              style={{
+                position: "absolute",
+                left: "55%",
+                right: 10,
+                bottom: insets.bottom + 8,
+                height: 56,
+                backgroundColor: "rgba(13,21,37,0.95)",
+                borderRadius: 18,
+                borderWidth: 1,
+                borderColor: "rgba(30,41,59,0.6)",
+              }}
+            />
+          </View>
+        ),
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: "600",
@@ -105,8 +138,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="planner"
         options={{
-          title: "Log",
-          tabBarIcon: ({ color, size }) => <ClipboardList size={size} color={color} strokeWidth={2} />,
+          title: "Planner",
+          tabBarIcon: ({ color, size }) => <LayoutGrid size={size} color={color} strokeWidth={2} />,
         }}
       />
       <Tabs.Screen
@@ -119,8 +152,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="reminders"
         options={{
-          title: "Analytics",
-          tabBarIcon: ({ color, size }) => <BarChart3 size={size} color={color} strokeWidth={2} />,
+          title: "Guide",
+          tabBarIcon: ({ color, size }) => <BookOpen size={size} color={color} strokeWidth={2} />,
         }}
       />
       <Tabs.Screen
