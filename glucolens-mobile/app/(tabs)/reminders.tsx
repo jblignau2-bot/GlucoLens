@@ -143,6 +143,38 @@ function CategoryCard({ category, active, onPress }: { category: GuideCategory; 
   );
 }
 
+function formatGuideContent(content: string) {
+  // Split on numbered items like "1. ", "2. " etc, or sentences separated by periods that start with a keyword
+  const parts = content.split(/(?=\d+\.\s)/).filter((s) => s.trim().length > 0);
+  if (parts.length > 1) {
+    return parts.map((part, idx) => {
+      const trimmed = part.trim();
+      // Extract the bold part before the dash
+      const dashIdx = trimmed.indexOf("—");
+      const colonIdx = trimmed.indexOf(":");
+      const splitIdx = dashIdx > 0 ? dashIdx : colonIdx > 0 ? colonIdx : -1;
+
+      return (
+        <View key={idx} style={{ flexDirection: "row", marginBottom: 8, gap: 8 }}>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary, marginTop: 7 }} />
+          <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 20, flex: 1 }}>
+            {splitIdx > 0 ? (
+              <>
+                <Text style={{ fontWeight: "700", color: colors.textPrimary }}>{trimmed.slice(0, splitIdx).replace(/^\d+\.\s*/, "")}</Text>
+                {trimmed.slice(splitIdx)}
+              </>
+            ) : (
+              trimmed
+            )}
+          </Text>
+        </View>
+      );
+    });
+  }
+  // No numbered items — just return as paragraph
+  return <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 20 }}>{content}</Text>;
+}
+
 function ContentCard({ card, expanded, onToggle, accentColor }: {
   card: { title: string; icon: any; content: string };
   expanded: boolean;
@@ -151,18 +183,44 @@ function ContentCard({ card, expanded, onToggle, accentColor }: {
 }) {
   const Icon = card.icon;
   return (
-    <Pressable onPress={onToggle} style={{ backgroundColor: colors.card, borderRadius: radius.lg, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.border }}>
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
-          <Icon size={18} color={accentColor} strokeWidth={2} />
-          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.textPrimary, flex: 1 }}>{card.title}</Text>
+    <View style={{ backgroundColor: colors.card, borderRadius: radius.lg, marginBottom: 10, borderWidth: 1, borderColor: colors.border, overflow: "hidden" }}>
+      <Pressable onPress={onToggle} style={{ padding: 16 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+            <Icon size={18} color={accentColor} strokeWidth={2} />
+            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.textPrimary, flex: 1 }}>{card.title}</Text>
+          </View>
+          {expanded ? <ChevronUp size={18} color={colors.textSecondary} /> : <ChevronDown size={18} color={colors.textSecondary} />}
         </View>
-        {expanded ? <ChevronUp size={18} color={colors.textSecondary} /> : <ChevronDown size={18} color={colors.textSecondary} />}
-      </View>
+      </Pressable>
       {expanded && (
-        <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 20, marginTop: 12, paddingLeft: 28 }}>{card.content}</Text>
+        <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+          <View style={{ paddingLeft: 28 }}>
+            {formatGuideContent(card.content)}
+          </View>
+          {/* GlucoBot prompt */}
+          <View style={{
+            marginTop: 16,
+            backgroundColor: "rgba(20,184,166,0.08)",
+            borderRadius: 12,
+            padding: 12,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            borderWidth: 1,
+            borderColor: "rgba(20,184,166,0.2)",
+          }}>
+            <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontSize: 16 }}>🤖</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>Want to know more?</Text>
+              <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>Ask GlucoBot for personalised advice</Text>
+            </View>
+          </View>
+        </View>
       )}
-    </Pressable>
+    </View>
   );
 }
 
