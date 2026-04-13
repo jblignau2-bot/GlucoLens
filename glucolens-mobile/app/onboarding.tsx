@@ -1,10 +1,10 @@
 import {
   View, Text, Pressable, TextInput, ScrollView, ActivityIndicator,
-  StatusBar, KeyboardAvoidingView, Platform,
+  StatusBar, KeyboardAvoidingView, Platform, Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Toast from "react-native-toast-message";
 import { CameraLensLogo } from "@/components/ui/GlucoLensLogo";
 import { trpc } from "@/lib/trpc";
@@ -13,7 +13,7 @@ import { colors, radius, spacing } from "@/constants/tokens";
 import {
   User, Globe, HeartPulse, Target, CheckCircle, Syringe, Activity,
   HelpCircle, ShieldCheck, Flame, Droplets, Wheat, ChevronRight, ChevronLeft,
-  Info, AlertTriangle,
+  Info, AlertTriangle, Pill,
 } from "lucide-react-native";
 
 // ─── Local goal calculation (no backend needed) ───────────────────────────────
@@ -29,7 +29,6 @@ function calcGoals(
     bmi < 25   ? "Normal weight" :
     bmi < 30   ? "Overweight" : "Obese";
 
-  // Harris-Benedict BMR
   const bmr = gender === "female"
     ? 447.593 + 9.247 * w + 3.098 * h - 4.330 * age
     : 88.362  + 13.397 * w + 4.799 * h - 5.677 * age;
@@ -41,26 +40,21 @@ function calcGoals(
 
   let calories = Math.round(bmr * activityMultiplier);
 
-  // Type-2 / pre-diabetes: modest caloric deficit if overweight
-  // Health-conscious (none): no deficit
   if ((diabetesType === "type2" || diabetesType === "unsure") && bmi >= 25) {
     calories = Math.round(calories * 0.85);
   }
   calories = Math.max(1200, Math.min(calories, 3500));
 
-  // Carb/sugar limits by diabetes type
   let maxDailyCarbs: number;
   let maxDailySugar: number;
 
   if (diabetesType === "none") {
-    // Health-conscious: general healthy eating guidelines
     maxDailyCarbs = 250;
     maxDailySugar = 50;
   } else {
     maxDailyCarbs =
       diabetesType === "type1"  ? 180 :
       diabetesType === "type2"  ? 130 : 150;
-
     maxDailySugar =
       diabetesType === "type1"  ? 30 :
       diabetesType === "type2"  ? 25 : 25;
@@ -80,61 +74,62 @@ function calcGoals(
 
 // ─── Countries ──────────────────────────────────────────────────────────────
 const COUNTRIES = [
-  { name: "Afghanistan", code: "AF", flag: "🇦🇫" },
-  { name: "Australia", code: "AU", flag: "🇦🇺" },
-  { name: "Brazil", code: "BR", flag: "🇧🇷" },
-  { name: "Canada", code: "CA", flag: "🇨🇦" },
-  { name: "China", code: "CN", flag: "🇨🇳" },
-  { name: "Egypt", code: "EG", flag: "🇪🇬" },
-  { name: "Ethiopia", code: "ET", flag: "🇪🇹" },
-  { name: "France", code: "FR", flag: "🇫🇷" },
-  { name: "Germany", code: "DE", flag: "🇩🇪" },
-  { name: "Ghana", code: "GH", flag: "🇬🇭" },
-  { name: "India", code: "IN", flag: "🇮🇳" },
-  { name: "Indonesia", code: "ID", flag: "🇮🇩" },
-  { name: "Iran", code: "IR", flag: "🇮🇷" },
-  { name: "Italy", code: "IT", flag: "🇮🇹" },
-  { name: "Japan", code: "JP", flag: "🇯🇵" },
-  { name: "Kenya", code: "KE", flag: "🇰🇪" },
-  { name: "Malaysia", code: "MY", flag: "🇲🇾" },
-  { name: "Mexico", code: "MX", flag: "🇲🇽" },
-  { name: "Morocco", code: "MA", flag: "🇲🇦" },
-  { name: "Mozambique", code: "MZ", flag: "🇲🇿" },
-  { name: "Netherlands", code: "NL", flag: "🇳🇱" },
-  { name: "New Zealand", code: "NZ", flag: "🇳🇿" },
-  { name: "Nigeria", code: "NG", flag: "🇳🇬" },
-  { name: "Pakistan", code: "PK", flag: "🇵🇰" },
-  { name: "Philippines", code: "PH", flag: "🇵🇭" },
-  { name: "Poland", code: "PL", flag: "🇵🇱" },
-  { name: "Portugal", code: "PT", flag: "🇵🇹" },
-  { name: "Russia", code: "RU", flag: "🇷🇺" },
-  { name: "Saudi Arabia", code: "SA", flag: "🇸🇦" },
-  { name: "Senegal", code: "SN", flag: "🇸🇳" },
-  { name: "Singapore", code: "SG", flag: "🇸🇬" },
-  { name: "South Africa", code: "ZA", flag: "🇿🇦" },
-  { name: "South Korea", code: "KR", flag: "🇰🇷" },
-  { name: "Spain", code: "ES", flag: "🇪🇸" },
-  { name: "Sri Lanka", code: "LK", flag: "🇱🇰" },
-  { name: "Sweden", code: "SE", flag: "🇸🇪" },
-  { name: "Tanzania", code: "TZ", flag: "🇹🇿" },
-  { name: "Thailand", code: "TH", flag: "🇹🇭" },
-  { name: "Turkey", code: "TR", flag: "🇹🇷" },
-  { name: "Uganda", code: "UG", flag: "🇺🇬" },
-  { name: "Ukraine", code: "UA", flag: "🇺🇦" },
-  { name: "United Arab Emirates", code: "AE", flag: "🇦🇪" },
-  { name: "United Kingdom", code: "GB", flag: "🇬🇧" },
-  { name: "United States", code: "US", flag: "🇺🇸" },
-  { name: "Vietnam", code: "VN", flag: "🇻🇳" },
-  { name: "Zambia", code: "ZM", flag: "🇿🇲" },
-  { name: "Zimbabwe", code: "ZW", flag: "🇿🇼" },
+  { name: "Afghanistan", code: "AF", flag: "\u{1F1E6}\u{1F1EB}" },
+  { name: "Australia", code: "AU", flag: "\u{1F1E6}\u{1F1FA}" },
+  { name: "Brazil", code: "BR", flag: "\u{1F1E7}\u{1F1F7}" },
+  { name: "Canada", code: "CA", flag: "\u{1F1E8}\u{1F1E6}" },
+  { name: "China", code: "CN", flag: "\u{1F1E8}\u{1F1F3}" },
+  { name: "Egypt", code: "EG", flag: "\u{1F1EA}\u{1F1EC}" },
+  { name: "Ethiopia", code: "ET", flag: "\u{1F1EA}\u{1F1F9}" },
+  { name: "France", code: "FR", flag: "\u{1F1EB}\u{1F1F7}" },
+  { name: "Germany", code: "DE", flag: "\u{1F1E9}\u{1F1EA}" },
+  { name: "Ghana", code: "GH", flag: "\u{1F1EC}\u{1F1ED}" },
+  { name: "India", code: "IN", flag: "\u{1F1EE}\u{1F1F3}" },
+  { name: "Indonesia", code: "ID", flag: "\u{1F1EE}\u{1F1E9}" },
+  { name: "Iran", code: "IR", flag: "\u{1F1EE}\u{1F1F7}" },
+  { name: "Italy", code: "IT", flag: "\u{1F1EE}\u{1F1F9}" },
+  { name: "Japan", code: "JP", flag: "\u{1F1EF}\u{1F1F5}" },
+  { name: "Kenya", code: "KE", flag: "\u{1F1F0}\u{1F1EA}" },
+  { name: "Malaysia", code: "MY", flag: "\u{1F1F2}\u{1F1FE}" },
+  { name: "Mexico", code: "MX", flag: "\u{1F1F2}\u{1F1FD}" },
+  { name: "Morocco", code: "MA", flag: "\u{1F1F2}\u{1F1E6}" },
+  { name: "Mozambique", code: "MZ", flag: "\u{1F1F2}\u{1F1FF}" },
+  { name: "Netherlands", code: "NL", flag: "\u{1F1F3}\u{1F1F1}" },
+  { name: "New Zealand", code: "NZ", flag: "\u{1F1F3}\u{1F1FF}" },
+  { name: "Nigeria", code: "NG", flag: "\u{1F1F3}\u{1F1EC}" },
+  { name: "Pakistan", code: "PK", flag: "\u{1F1F5}\u{1F1F0}" },
+  { name: "Philippines", code: "PH", flag: "\u{1F1F5}\u{1F1ED}" },
+  { name: "Poland", code: "PL", flag: "\u{1F1F5}\u{1F1F1}" },
+  { name: "Portugal", code: "PT", flag: "\u{1F1F5}\u{1F1F9}" },
+  { name: "Russia", code: "RU", flag: "\u{1F1F7}\u{1F1FA}" },
+  { name: "Saudi Arabia", code: "SA", flag: "\u{1F1F8}\u{1F1E6}" },
+  { name: "Senegal", code: "SN", flag: "\u{1F1F8}\u{1F1F3}" },
+  { name: "Singapore", code: "SG", flag: "\u{1F1F8}\u{1F1EC}" },
+  { name: "South Africa", code: "ZA", flag: "\u{1F1FF}\u{1F1E6}" },
+  { name: "South Korea", code: "KR", flag: "\u{1F1F0}\u{1F1F7}" },
+  { name: "Spain", code: "ES", flag: "\u{1F1EA}\u{1F1F8}" },
+  { name: "Sri Lanka", code: "LK", flag: "\u{1F1F1}\u{1F1F0}" },
+  { name: "Sweden", code: "SE", flag: "\u{1F1F8}\u{1F1EA}" },
+  { name: "Tanzania", code: "TZ", flag: "\u{1F1F9}\u{1F1FF}" },
+  { name: "Thailand", code: "TH", flag: "\u{1F1F9}\u{1F1ED}" },
+  { name: "Turkey", code: "TR", flag: "\u{1F1F9}\u{1F1F7}" },
+  { name: "Uganda", code: "UG", flag: "\u{1F1FA}\u{1F1EC}" },
+  { name: "Ukraine", code: "UA", flag: "\u{1F1FA}\u{1F1E6}" },
+  { name: "United Arab Emirates", code: "AE", flag: "\u{1F1E6}\u{1F1EA}" },
+  { name: "United Kingdom", code: "GB", flag: "\u{1F1EC}\u{1F1E7}" },
+  { name: "United States", code: "US", flag: "\u{1F1FA}\u{1F1F8}" },
+  { name: "Vietnam", code: "VN", flag: "\u{1F1FB}\u{1F1F3}" },
+  { name: "Zambia", code: "ZM", flag: "\u{1F1FF}\u{1F1F2}" },
+  { name: "Zimbabwe", code: "ZW", flag: "\u{1F1FF}\u{1F1FC}" },
 ];
 
+// ─── Step config with hero emoji + subtitle ─────────────────────────────────
 const STEPS = [
-  { id: 1, title: "Personal Info", desc: "Tell us your name", icon: User },
-  { id: 2, title: "Your Location", desc: "For regional food analysis", icon: Globe },
-  { id: 3, title: "Health Details", desc: "Height, weight & age", icon: HeartPulse },
-  { id: 4, title: "Diabetes Type", desc: "Your condition type", icon: Target },
-  { id: 5, title: "Your Goals", desc: "AI-calculated daily targets", icon: CheckCircle },
+  { id: 1, title: "What's your name?", desc: "Let's make this personal", icon: User, hero: "\u{1F44B}", heroLabel: "Welcome to GlucoLens" },
+  { id: 2, title: "Where are you based?", desc: "For local food recognition", icon: Globe, hero: "\u{1F30D}", heroLabel: "We'll tailor meals to your region" },
+  { id: 3, title: "About you", desc: "Height, weight, age & health", icon: HeartPulse, hero: "\u{1F4AA}", heroLabel: "This powers your AI calculations" },
+  { id: 4, title: "Your condition", desc: "So we know how to help", icon: Target, hero: "\u{1F3AF}", heroLabel: "Pick what matches you best" },
+  { id: 5, title: "Your plan is ready", desc: "AI-calculated daily targets", icon: CheckCircle, hero: "\u{1F680}", heroLabel: "Let's go!" },
 ];
 
 interface GoalResult {
@@ -159,6 +154,8 @@ interface FormData {
   gender: "male" | "female" | "other" | "";
   activityLevel: "sedentary" | "light" | "moderate" | "active";
   diabetesType: "type1" | "type2" | "unsure" | "none" | "";
+  allergies: string;
+  medication: string;
   dailyCalorieGoal: number;
   maxDailySugar: number;
   maxDailyCarbs: number;
@@ -175,6 +172,27 @@ const labelStyle = {
   marginBottom: 6, letterSpacing: 0.5,
 };
 
+// ─── Pill selector component ────────────────────────────────────────────────
+function PillOption({ selected, label, onPress }: { selected: boolean; label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{
+        flex: 1, height: 48, borderRadius: radius.lg,
+        borderWidth: 2,
+        borderColor: selected ? colors.primary : `${colors.textPrimary}15`,
+        backgroundColor: selected ? `${colors.primary}15` : colors.background,
+        alignItems: "center", justifyContent: "center",
+      }}
+    >
+      <Text style={{
+        fontSize: 14, fontWeight: "700",
+        color: selected ? colors.primary : colors.textSecondary,
+      }}>{label}</Text>
+    </Pressable>
+  );
+}
+
 export default function Onboarding() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -187,6 +205,16 @@ export default function Onboarding() {
   const [acceptedDisclaimer, setAcceptedDisclaimer] = useState(false);
   const [disclaimerAcceptedAt, setDisclaimerAcceptedAt] = useState<string | null>(null);
 
+  // Fade animation for step transitions
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  const animateStep = (newStep: number) => {
+    Animated.timing(fadeAnim, { toValue: 0, duration: 120, useNativeDriver: true }).start(() => {
+      setStep(newStep);
+      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    });
+  };
+
   const [form, setForm] = useState<FormData>({
     firstName: "", lastName: "", email: "",
     country: "", countryCode: "", countryFlag: "",
@@ -194,6 +222,8 @@ export default function Onboarding() {
     gender: "" as "male" | "female" | "other" | "",
     activityLevel: "light" as "sedentary" | "light" | "moderate" | "active",
     diabetesType: "" as "type1" | "type2" | "unsure" | "none" | "",
+    allergies: "",
+    medication: "",
     dailyCalorieGoal: 1800, maxDailySugar: 50, maxDailyCarbs: 200,
   });
 
@@ -225,38 +255,22 @@ export default function Onboarding() {
     const age = Number(form.age);
 
     if (isNaN(height) || height < 100 || height > 250) {
-      Toast.show({
-        type: "error",
-        text1: "Invalid Height",
-        text2: "Please enter a height between 100-250 cm",
-      });
+      Toast.show({ type: "error", text1: "Invalid Height", text2: "Please enter a height between 100-250 cm" });
       return false;
     }
-
     if (isNaN(weight) || weight < 20 || weight > 300) {
-      Toast.show({
-        type: "error",
-        text1: "Invalid Weight",
-        text2: "Please enter a weight between 20-300 kg",
-      });
+      Toast.show({ type: "error", text1: "Invalid Weight", text2: "Please enter a weight between 20-300 kg" });
       return false;
     }
-
     if (isNaN(age) || age < 10 || age > 120) {
-      Toast.show({
-        type: "error",
-        text1: "Invalid Age",
-        text2: "Please enter an age between 10-120 years",
-      });
+      Toast.show({ type: "error", text1: "Invalid Age", text2: "Please enter an age between 10-120 years" });
       return false;
     }
-
     return true;
   }
 
   function runGoalCalculation() {
     if (!validateInputs()) return;
-
     setIsCalculating(true);
     try {
       const result = calcGoals(
@@ -276,17 +290,20 @@ export default function Onboarding() {
 
   function handleNext() {
     if (step === 4) {
-      setStep(5);
-      runGoalCalculation();
+      animateStep(5);
+      setTimeout(() => runGoalCalculation(), 150);
     } else if (step < 5) {
-      setStep(s => s + 1);
+      animateStep(step + 1);
     }
+  }
+
+  function handleBack() {
+    if (step > 1) animateStep(step - 1);
   }
 
   async function handleFinish() {
     try {
       const diabetesTypeToSend = form.diabetesType || "type2";
-
       const savedData = await upsertProfile.mutateAsync({
         firstName: form.firstName,
         lastName: form.lastName,
@@ -302,40 +319,34 @@ export default function Onboarding() {
         dailyCalorieGoal: form.dailyCalorieGoal,
         maxDailySugar: form.maxDailySugar,
         maxDailyCarbs: form.maxDailyCarbs,
+        allergies: form.allergies || undefined,
+        medication: form.medication || undefined,
         dietaryRestrictions: disclaimerAcceptedAt
           ? `disclaimer_accepted:${disclaimerAcceptedAt}`
           : undefined,
         onboardingComplete: 1,
-      });
+      } as any);
 
-      // Persist to in-memory store so all screens have the profile immediately
-      // API now returns camelCase so we can pass it directly
-      if (savedData) {
-        setProfile(savedData as any);
-      }
+      if (savedData) setProfile(savedData as any);
       router.replace("/(tabs)");
     } catch (e: any) {
       console.warn("Profile save failed:", e.message);
       Toast.show({
-        type: "error",
-        text1: "Save failed",
+        type: "error", text1: "Save failed",
         text2: "Your profile could not be saved. Please check your connection and try again.",
         visibilityTime: 4000,
       });
-      return; // Don't navigate — stay on onboarding
     }
   }
 
   if (checkingProfile) return (
     <View style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }}>
       <ActivityIndicator size="large" color={colors.primary} />
-      <Text style={{ marginTop: 16, fontSize: 14, color: colors.textSecondary }}>
-        Setting up your account…
-      </Text>
+      <Text style={{ marginTop: 16, fontSize: 14, color: colors.textSecondary }}>Setting up your account...</Text>
     </View>
   );
 
-  const StepIcon = STEPS[step - 1].icon;
+  const currentStep = STEPS[step - 1];
 
   return (
     <KeyboardAvoidingView
@@ -350,56 +361,31 @@ export default function Onboarding() {
       >
         <View style={{
           flex: 1,
-          paddingTop: insets.top + spacing.md,
-          paddingBottom: insets.bottom + spacing.xxxl,
-          paddingHorizontal: spacing.xxl,
+          paddingTop: insets.top + 12,
+          paddingBottom: insets.bottom + 24,
+          paddingHorizontal: 20,
         }}>
 
-          {/* Header */}
-          <CameraLensLogo size={32} showText textSize={17} />
-          <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 20 }}>
-            Let's personalise your experience
-          </Text>
-
-          {/* Step indicators - sleek capsule progress dots */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
-            {STEPS.map((s, idx) => (
-              <View key={s.id} style={{ alignItems: "center" }}>
-                <View style={{
-                  width: step >= s.id ? 36 : 32,
-                  height: 32,
-                  borderRadius: 16,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: step > s.id ? colors.primary : step === s.id ? colors.primary : `${colors.textPrimary}10`,
-                  shadowColor: step === s.id ? colors.primary : "transparent",
-                  shadowOffset: { width: 0, height: step === s.id ? 8 : 0 },
-                  shadowOpacity: step === s.id ? 0.3 : 0,
-                  shadowRadius: step === s.id ? 12 : 0,
-                  elevation: step === s.id ? 8 : 0,
-                }}>
-                  {step > s.id ? (
-                    <CheckCircle size={16} color="#fff" strokeWidth={3} />
-                  ) : (
-                    <Text style={{
-                      fontSize: 12,
-                      fontWeight: "700",
-                      color: step === s.id ? "#fff" : colors.textSecondary,
-                    }}>
-                      {s.id}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            ))}
+          {/* ── Top bar: Logo + step counter ── */}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+            <CameraLensLogo size={28} showText textSize={15} />
+            <View style={{
+              backgroundColor: `${colors.primary}15`,
+              paddingHorizontal: 12, paddingVertical: 6,
+              borderRadius: 20,
+            }}>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>
+                {step} of {STEPS.length}
+              </Text>
+            </View>
           </View>
 
-          {/* Progress bar */}
+          {/* ── Progress bar ── */}
           <View style={{
             height: 4,
-            backgroundColor: `${colors.textPrimary}10`,
+            backgroundColor: `${colors.textPrimary}08`,
             borderRadius: 2,
-            marginBottom: 24,
+            marginBottom: 28,
             overflow: "hidden",
           }}>
             <View style={{
@@ -410,43 +396,41 @@ export default function Onboarding() {
             }} />
           </View>
 
-          {/* Card - glass-effect */}
-          <View style={{
-            backgroundColor: colors.card,
-            borderWidth: 1,
-            borderColor: `${colors.textPrimary}10`,
-            borderRadius: radius.xl,
-            padding: spacing.xxl,
-            flex: 1,
-          }}>
-
-            {/* Step header */}
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          {/* ── Hero section ── */}
+          <Animated.View style={{ opacity: fadeAnim }}>
+            <View style={{ alignItems: "center", marginBottom: 24 }}>
               <View style={{
-                width: 44,
-                height: 44,
-                borderRadius: radius.lg,
-                backgroundColor: `${colors.primary}15`,
-                alignItems: "center",
-                justifyContent: "center",
+                width: 80, height: 80, borderRadius: 40,
+                backgroundColor: `${colors.primary}12`,
+                alignItems: "center", justifyContent: "center",
+                marginBottom: 16,
               }}>
-                <StepIcon size={22} color={colors.primary} strokeWidth={2} />
+                <Text style={{ fontSize: 40 }}>{currentStep.hero}</Text>
               </View>
-              <View>
-                <Text style={{ fontSize: 16, fontWeight: "800", color: colors.textPrimary }}>
-                  {STEPS[step - 1].title}
-                </Text>
-                <Text style={{ fontSize: 12, color: colors.textSecondary }}>
-                  {STEPS[step - 1].desc}
-                </Text>
-              </View>
+              <Text style={{
+                fontSize: 24, fontWeight: "800", color: colors.textPrimary,
+                textAlign: "center", marginBottom: 6,
+              }}>
+                {currentStep.title}
+              </Text>
+              <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: "center" }}>
+                {currentStep.heroLabel}
+              </Text>
             </View>
 
-            {/* ── STEP 1: Personal Info ── */}
-            {step === 1 && (
-              <View style={{ gap: 14 }}>
-                <View style={{ flexDirection: "row", gap: 10 }}>
-                  <View style={{ flex: 1 }}>
+            {/* ── Content card ── */}
+            <View style={{
+              backgroundColor: colors.card,
+              borderWidth: 1,
+              borderColor: `${colors.textPrimary}08`,
+              borderRadius: 20,
+              padding: 20,
+            }}>
+
+              {/* ── STEP 1: Name ── */}
+              {step === 1 && (
+                <View style={{ gap: 14 }}>
+                  <View>
                     <Text style={labelStyle}>FIRST NAME *</Text>
                     <TextInput
                       value={form.firstName}
@@ -454,9 +438,10 @@ export default function Onboarding() {
                       placeholder="e.g. Justin"
                       placeholderTextColor={colors.textSecondary}
                       style={inputStyle}
+                      autoFocus
                     />
                   </View>
-                  <View style={{ flex: 1 }}>
+                  <View>
                     <Text style={labelStyle}>LAST NAME *</Text>
                     <TextInput
                       value={form.lastName}
@@ -466,544 +451,448 @@ export default function Onboarding() {
                       style={inputStyle}
                     />
                   </View>
-                </View>
-
-                <View style={{
-                  backgroundColor: `${colors.primary}10`,
-                  borderWidth: 1,
-                  borderColor: `${colors.primary}30`,
-                  borderRadius: radius.md,
-                  padding: 12,
-                }}>
-                  <Text style={{ fontSize: 12, color: colors.textPrimary, lineHeight: 18 }}>
-                    Your name helps us personalise your dashboard and meal recommendations.
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {/* ── STEP 2: Country ── */}
-            {step === 2 && (
-              <View style={{ gap: 14 }}>
-                <View>
-                  <Text style={labelStyle}>SELECT YOUR COUNTRY *</Text>
-                  <TextInput
-                    value={showCountries ? countrySearch : (form.countryFlag ? `${form.countryFlag}  ${form.country}` : "")}
-                    onChangeText={v => { setCountrySearch(v); setShowCountries(true); }}
-                    onFocus={() => { setShowCountries(true); setCountrySearch(""); }}
-                    placeholder="Type or scroll to find your country..."
-                    placeholderTextColor={colors.textSecondary}
-                    style={inputStyle}
-                  />
-                </View>
-
-                {showCountries && (
                   <View style={{
-                    backgroundColor: colors.background,
-                    borderWidth: 1,
-                    borderColor: `${colors.textPrimary}15`,
-                    borderRadius: radius.lg,
-                    maxHeight: 220,
-                    overflow: "hidden",
-                  }}>
-                    <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="always">
-                      {filteredCountries.length === 0 ? (
-                        <Text style={{ textAlign: "center", padding: 16, color: colors.textSecondary, fontSize: 13 }}>
-                          No countries found
-                        </Text>
-                      ) : filteredCountries.map(c => (
-                        <Pressable
-                          key={c.code}
-                          onPress={() => {
-                            update("country", c.name);
-                            update("countryCode", c.code);
-                            update("countryFlag", c.flag);
-                            setShowCountries(false);
-                            setCountrySearch("");
-                          }}
-                          style={({ pressed }) => ({
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 12,
-                            paddingHorizontal: 16,
-                            paddingVertical: 12,
-                            backgroundColor: pressed ? `${colors.primary}10` : "transparent",
-                          })}
-                        >
-                          <Text style={{ fontSize: 20 }}>{c.flag}</Text>
-                          <Text style={{ fontSize: 14, color: colors.textPrimary }}>{c.name}</Text>
-                        </Pressable>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
-
-                {form.country && !showCountries && (
-                  <View style={{
-                    backgroundColor: `${colors.primary}10`,
-                    borderWidth: 1,
-                    borderColor: `${colors.primary}30`,
-                    borderRadius: radius.lg,
-                    padding: 16,
-                  }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                      <Text style={{ fontSize: 32 }}>{form.countryFlag}</Text>
-                      <View>
-                        <Text style={{ fontWeight: "700", color: colors.textPrimary, fontSize: 15 }}>{form.country}</Text>
-                        <Text style={{ fontSize: 12, color: colors.textSecondary }}>Selected country</Text>
-                      </View>
-                    </View>
-                    <Text style={{ fontSize: 12, color: colors.textPrimary, lineHeight: 18 }}>
-                      The AI will now recognise foods from {form.country}'s cuisine using local names and regional context.
-                    </Text>
-                  </View>
-                )}
-
-                <View style={{
-                  backgroundColor: colors.card,
-                  borderWidth: 1,
-                  borderColor: `${colors.textPrimary}10`,
-                  borderRadius: radius.md,
-                  padding: 12,
-                }}>
-                  <Text style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 18 }}>
-                    <Text style={{ fontWeight: "700", color: colors.textPrimary }}>Why this matters: </Text>
-                    Foods like boerewors, jollof rice, biryani, or pho have unique nutritional profiles. We use your country for accurate, culturally-relevant analysis.
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {/* ── STEP 3: Health Details ── */}
-            {step === 3 && (
-              <View style={{ gap: 14 }}>
-                <View style={{ flexDirection: "row", gap: 10 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={labelStyle}>HEIGHT (cm) *</Text>
-                    <TextInput
-                      value={form.heightCm}
-                      onChangeText={v => update("heightCm", v)}
-                      placeholder="e.g. 175"
-                      placeholderTextColor={colors.textSecondary}
-                      keyboardType="numeric"
-                      style={inputStyle}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={labelStyle}>WEIGHT (kg) *</Text>
-                    <TextInput
-                      value={form.weightKg}
-                      onChangeText={v => update("weightKg", v)}
-                      placeholder="e.g. 75"
-                      placeholderTextColor={colors.textSecondary}
-                      keyboardType="numeric"
-                      style={inputStyle}
-                    />
-                  </View>
-                </View>
-
-                <View>
-                  <Text style={labelStyle}>AGE *</Text>
-                  <TextInput
-                    value={form.age}
-                    onChangeText={v => update("age", v)}
-                    placeholder="e.g. 35"
-                    placeholderTextColor={colors.textSecondary}
-                    keyboardType="numeric"
-                    style={inputStyle}
-                  />
-                </View>
-
-                <View>
-                  <Text style={labelStyle}>GENDER *</Text>
-                  <View style={{ flexDirection: "row", gap: 10 }}>
-                    {(["male", "female"] as const).map(g => (
-                      <Pressable
-                        key={g}
-                        onPress={() => update("gender", g)}
-                        style={{
-                          flex: 1,
-                          height: 48,
-                          borderRadius: radius.md,
-                          borderWidth: 1.5,
-                          borderColor: form.gender === g ? colors.primary : `${colors.textPrimary}15`,
-                          backgroundColor: form.gender === g ? `${colors.primary}15` : colors.background,
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                          {g === "male" ? (
-                            <User size={16} color={form.gender === g ? colors.primary : colors.textSecondary} strokeWidth={2} />
-                          ) : (
-                            <User size={16} color={form.gender === g ? colors.primary : colors.textSecondary} strokeWidth={2} />
-                          )}
-                          <Text style={{
-                            fontSize: 14,
-                            fontWeight: "600",
-                            color: form.gender === g ? colors.primary : colors.textSecondary,
-                          }}>
-                            {g === "male" ? "Male" : "Female"}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-
-                <View>
-                  <Text style={labelStyle}>ACTIVITY LEVEL</Text>
-                  <View style={{
-                    backgroundColor: `${colors.primary}10`,
-                    borderWidth: 1,
-                    borderColor: `${colors.primary}30`,
+                    backgroundColor: `${colors.primary}08`,
                     borderRadius: radius.md,
                     padding: 12,
-                    marginBottom: 10,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
                   }}>
-                    <Text style={{ fontSize: 12, color: colors.textPrimary, lineHeight: 18 }}>
-                      <Text style={{ fontWeight: "700" }}>Why does this matter? </Text>
-                      Your activity level helps us calculate how many calories your body burns each day. More active people need more fuel — so we adjust your daily goals to match your lifestyle.
+                    <Info size={14} color={colors.primary} />
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, flex: 1, lineHeight: 18 }}>
+                      We use your name to personalise your dashboard and meal plans.
                     </Text>
                   </View>
-                  <View style={{ gap: 8 }}>
-                    {([
-                      { value: "sedentary", label: "Sedentary", desc: "You sit most of the day (desk job, watching TV). Little to no exercise." },
-                      { value: "light", label: "Lightly Active", desc: "You do light exercise 1–3 days a week, like casual walks or light housework." },
-                      { value: "moderate", label: "Moderately Active", desc: "You exercise 3–5 days a week — gym sessions, jogging, cycling, or an active job." },
-                      { value: "active", label: "Very Active", desc: "You exercise hard almost every day — sports, physical labour, or intense training." },
-                    ] as const).map(a => (
-                      <Pressable
-                        key={a.value}
-                        onPress={() => update("activityLevel", a.value)}
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          padding: 12,
-                          borderRadius: radius.md,
-                          borderWidth: 1.5,
-                          borderLeftWidth: form.activityLevel === a.value ? 4 : 1.5,
-                          borderColor: form.activityLevel === a.value ? colors.primary : `${colors.textPrimary}15`,
-                          borderLeftColor: form.activityLevel === a.value ? colors.primary : `${colors.textPrimary}15`,
-                          backgroundColor: form.activityLevel === a.value ? `${colors.primary}10` : colors.background,
-                        }}
-                      >
-                        <View>
-                          <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textPrimary }}>{a.label}</Text>
-                          <Text style={{ fontSize: 11, color: colors.textSecondary }}>{a.desc}</Text>
-                        </View>
-                        {form.activityLevel === a.value && (
-                          <CheckCircle size={18} color={colors.primary} strokeWidth={2.5} />
-                        )}
-                      </Pressable>
-                    ))}
+                </View>
+              )}
+
+              {/* ── STEP 2: Country ── */}
+              {step === 2 && (
+                <View style={{ gap: 14 }}>
+                  <View>
+                    <Text style={labelStyle}>YOUR COUNTRY *</Text>
+                    <TextInput
+                      value={showCountries ? countrySearch : (form.countryFlag ? `${form.countryFlag}  ${form.country}` : "")}
+                      onChangeText={v => { setCountrySearch(v); setShowCountries(true); }}
+                      onFocus={() => { setShowCountries(true); setCountrySearch(""); }}
+                      placeholder="Search for your country..."
+                      placeholderTextColor={colors.textSecondary}
+                      style={inputStyle}
+                    />
+                  </View>
+
+                  {showCountries && (
+                    <View style={{
+                      backgroundColor: colors.background,
+                      borderWidth: 1,
+                      borderColor: `${colors.textPrimary}12`,
+                      borderRadius: radius.lg,
+                      maxHeight: 200,
+                      overflow: "hidden",
+                    }}>
+                      <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="always">
+                        {filteredCountries.length === 0 ? (
+                          <Text style={{ textAlign: "center", padding: 16, color: colors.textSecondary, fontSize: 13 }}>
+                            No countries found
+                          </Text>
+                        ) : filteredCountries.map(c => (
+                          <Pressable
+                            key={c.code}
+                            onPress={() => {
+                              update("country", c.name);
+                              update("countryCode", c.code);
+                              update("countryFlag", c.flag);
+                              setShowCountries(false);
+                              setCountrySearch("");
+                            }}
+                            style={({ pressed }) => ({
+                              flexDirection: "row", alignItems: "center", gap: 12,
+                              paddingHorizontal: 16, paddingVertical: 12,
+                              backgroundColor: pressed ? `${colors.primary}10` : "transparent",
+                            })}
+                          >
+                            <Text style={{ fontSize: 22 }}>{c.flag}</Text>
+                            <Text style={{ fontSize: 14, color: colors.textPrimary, fontWeight: "500" }}>{c.name}</Text>
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+
+                  {form.country && !showCountries && (
+                    <View style={{
+                      backgroundColor: `${colors.primary}10`,
+                      borderRadius: radius.lg,
+                      padding: 16,
+                      flexDirection: "row", alignItems: "center", gap: 14,
+                    }}>
+                      <Text style={{ fontSize: 36 }}>{form.countryFlag}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontWeight: "700", color: colors.textPrimary, fontSize: 15 }}>{form.country}</Text>
+                        <Text style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 18, marginTop: 2 }}>
+                          AI will recognise {form.country}'s local foods, stores, and cuisines.
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  <View style={{
+                    backgroundColor: `${colors.primary}08`,
+                    borderRadius: radius.md,
+                    padding: 12,
+                    flexDirection: "row", alignItems: "flex-start", gap: 10,
+                  }}>
+                    <Info size={14} color={colors.primary} style={{ marginTop: 2 }} />
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, flex: 1, lineHeight: 18 }}>
+                      <Text style={{ fontWeight: "700", color: colors.textPrimary }}>Why this matters: </Text>
+                      Foods like boerewors, jollof rice, biryani, or pho have unique nutritional profiles. We tailor analysis to your region.
+                    </Text>
                   </View>
                 </View>
-              </View>
-            )}
+              )}
 
-            {/* ── STEP 4: Diabetes Type ── */}
-            {step === 4 && (
-              <View style={{ gap: 12 }}>
-                {([
-                  {
-                    value: "type1",
-                    icon: Syringe,
-                    label: "Type 1 Diabetes",
-                    desc: "Insulin-dependent. Body doesn't produce insulin. Focus on consistent carb intake for accurate insulin dosing.",
-                  },
-                  {
-                    value: "type2",
-                    icon: Activity,
-                    label: "Type 2 Diabetes",
-                    desc: "Insulin resistant. Body doesn't use insulin effectively. Focus on low sugar, low GI foods, and portion control.",
-                  },
-                  {
-                    value: "unsure",
-                    icon: HelpCircle,
-                    label: "Pre-Diabetes / Unsure",
-                    desc: "Blood sugar is higher than normal but not yet Type 2. Focus on prevention through diet and lifestyle.",
-                  },
-                  {
-                    value: "none",
-                    icon: ShieldCheck,
-                    label: "Health Conscious",
-                    desc: "No diabetes. I want to eat healthier, track nutrition, and manage my weight.",
-                  },
-                ] as const).map(t => {
-                  const IconComponent = t.icon;
-                  return (
+              {/* ── STEP 3: Health Details ── */}
+              {step === 3 && (
+                <View style={{ gap: 14 }}>
+                  {/* Height + Weight row */}
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={labelStyle}>HEIGHT (cm) *</Text>
+                      <TextInput
+                        value={form.heightCm}
+                        onChangeText={v => update("heightCm", v)}
+                        placeholder="175"
+                        placeholderTextColor={colors.textSecondary}
+                        keyboardType="numeric"
+                        style={inputStyle}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={labelStyle}>WEIGHT (kg) *</Text>
+                      <TextInput
+                        value={form.weightKg}
+                        onChangeText={v => update("weightKg", v)}
+                        placeholder="75"
+                        placeholderTextColor={colors.textSecondary}
+                        keyboardType="numeric"
+                        style={inputStyle}
+                      />
+                    </View>
+                  </View>
+
+                  {/* Age + Gender row */}
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={labelStyle}>AGE *</Text>
+                      <TextInput
+                        value={form.age}
+                        onChangeText={v => update("age", v)}
+                        placeholder="35"
+                        placeholderTextColor={colors.textSecondary}
+                        keyboardType="numeric"
+                        style={inputStyle}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={labelStyle}>GENDER *</Text>
+                      <View style={{ flexDirection: "row", gap: 8 }}>
+                        <PillOption selected={form.gender === "male"} label="Male" onPress={() => update("gender", "male")} />
+                        <PillOption selected={form.gender === "female"} label="Female" onPress={() => update("gender", "female")} />
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Activity Level */}
+                  <View>
+                    <Text style={labelStyle}>ACTIVITY LEVEL</Text>
+                    <View style={{ gap: 6 }}>
+                      {([
+                        { value: "sedentary", label: "Sedentary", emoji: "\u{1F6CB}\u{FE0F}", desc: "Desk job, little movement" },
+                        { value: "light", label: "Lightly Active", emoji: "\u{1F6B6}", desc: "Walking 1-3 days/week" },
+                        { value: "moderate", label: "Fairly Active", emoji: "\u{1F3C3}", desc: "Exercise 3-5 days/week" },
+                        { value: "active", label: "Very Active", emoji: "\u{1F3CB}\u{FE0F}", desc: "Hard exercise 6-7 days/week" },
+                      ] as const).map(a => (
+                        <Pressable
+                          key={a.value}
+                          onPress={() => update("activityLevel", a.value)}
+                          style={{
+                            flexDirection: "row", alignItems: "center", gap: 12,
+                            padding: 12, borderRadius: radius.md,
+                            borderWidth: 1.5,
+                            borderColor: form.activityLevel === a.value ? colors.primary : `${colors.textPrimary}10`,
+                            backgroundColor: form.activityLevel === a.value ? `${colors.primary}10` : colors.background,
+                          }}
+                        >
+                          <Text style={{ fontSize: 20 }}>{a.emoji}</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textPrimary }}>{a.label}</Text>
+                            <Text style={{ fontSize: 11, color: colors.textSecondary }}>{a.desc}</Text>
+                          </View>
+                          {form.activityLevel === a.value && (
+                            <CheckCircle size={18} color={colors.primary} strokeWidth={2.5} />
+                          )}
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Allergies (optional) */}
+                  <View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                      <AlertTriangle size={12} color="#f59e0b" />
+                      <Text style={labelStyle}>ALLERGIES / INTOLERANCES</Text>
+                    </View>
+                    <TextInput
+                      value={form.allergies}
+                      onChangeText={v => update("allergies", v)}
+                      placeholder="e.g. peanuts, lactose, gluten (optional)"
+                      placeholderTextColor={colors.textSecondary}
+                      style={inputStyle}
+                    />
+                  </View>
+
+                  {/* Medication (optional) */}
+                  <View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                      <Pill size={12} color={colors.primary} />
+                      <Text style={labelStyle}>CURRENT MEDICATION</Text>
+                    </View>
+                    <TextInput
+                      value={form.medication}
+                      onChangeText={v => update("medication", v)}
+                      placeholder="e.g. Metformin 500mg (optional)"
+                      placeholderTextColor={colors.textSecondary}
+                      style={inputStyle}
+                    />
+                  </View>
+
+                  <View style={{
+                    backgroundColor: `${colors.primary}08`,
+                    borderRadius: radius.md,
+                    padding: 12,
+                    flexDirection: "row", alignItems: "flex-start", gap: 10,
+                  }}>
+                    <Info size={14} color={colors.primary} style={{ marginTop: 2 }} />
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, flex: 1, lineHeight: 18 }}>
+                      Allergies and medication help GlucoBot avoid harmful ingredients and tailor your meal plans safely.
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* ── STEP 4: Diabetes Type ── */}
+              {step === 4 && (
+                <View style={{ gap: 10 }}>
+                  {([
+                    {
+                      value: "type1", icon: Syringe, emoji: "\u{1F489}",
+                      label: "Type 1 Diabetes",
+                      desc: "Insulin-dependent. Focus on consistent carb intake for accurate insulin dosing.",
+                    },
+                    {
+                      value: "type2", icon: Activity, emoji: "\u{1F4C9}",
+                      label: "Type 2 Diabetes",
+                      desc: "Insulin resistant. Focus on low sugar, low GI foods, and portion control.",
+                    },
+                    {
+                      value: "unsure", icon: HelpCircle, emoji: "\u{26A0}\u{FE0F}",
+                      label: "Pre-Diabetes / Unsure",
+                      desc: "Blood sugar higher than normal. Focus on prevention through diet.",
+                    },
+                    {
+                      value: "none", icon: ShieldCheck, emoji: "\u{1F49A}",
+                      label: "Health Conscious",
+                      desc: "No diabetes. I want to eat healthier and manage my weight.",
+                    },
+                  ] as const).map(t => (
                     <Pressable
                       key={t.value}
                       onPress={() => update("diabetesType", t.value)}
                       style={{
-                        padding: 16,
-                        borderRadius: radius.lg,
+                        flexDirection: "row", alignItems: "center", gap: 14,
+                        padding: 16, borderRadius: radius.lg,
                         borderWidth: 2,
-                        borderLeftWidth: form.diabetesType === t.value ? 4 : 2,
-                        borderColor: form.diabetesType === t.value ? colors.primary : `${colors.textPrimary}15`,
-                        borderLeftColor: form.diabetesType === t.value ? colors.primary : `${colors.textPrimary}15`,
+                        borderColor: form.diabetesType === t.value ? colors.primary : `${colors.textPrimary}10`,
                         backgroundColor: form.diabetesType === t.value ? `${colors.primary}10` : colors.background,
                       }}
                     >
-                      <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-                        <View style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: radius.md,
-                          backgroundColor: form.diabetesType === t.value ? colors.primary : `${colors.primary}20`,
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}>
-                          <IconComponent
-                            size={20}
-                            color={form.diabetesType === t.value ? "#fff" : colors.primary}
-                            strokeWidth={2}
-                          />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.textPrimary, marginBottom: 4 }}>
-                            {t.label}
-                          </Text>
-                          <Text style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 18 }}>
-                            {t.desc}
-                          </Text>
-                        </View>
-                        {form.diabetesType === t.value && (
-                          <CheckCircle size={20} color={colors.primary} strokeWidth={2.5} />
-                        )}
+                      <Text style={{ fontSize: 28 }}>{t.emoji}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.textPrimary, marginBottom: 2 }}>
+                          {t.label}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 17 }}>
+                          {t.desc}
+                        </Text>
                       </View>
+                      {form.diabetesType === t.value && (
+                        <CheckCircle size={22} color={colors.primary} strokeWidth={2.5} />
+                      )}
                     </Pressable>
-                  );
-                })}
-              </View>
-            )}
+                  ))}
+                </View>
+              )}
 
-            {/* ── STEP 5: Goals ── */}
-            {step === 5 && (
-              <View style={{ gap: 14 }}>
-                {isCalculating ? (
-                  <View style={{ alignItems: "center", paddingVertical: 40, gap: 12 }}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                    <Text style={{ fontSize: 13, color: colors.textSecondary }}>
-                      GlucoLens AI is calculating your personalised goals...
-                    </Text>
-                  </View>
-                ) : calculatedGoals ? (
-                  <>
-                    {/* GlucoLens AI Specialist header */}
-                    <View style={{
-                      backgroundColor: `${colors.primary}15`,
-                      borderWidth: 1.5,
-                      borderColor: colors.primary,
-                      borderRadius: radius.lg,
-                      padding: 14,
-                    }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              {/* ── STEP 5: Goals ── */}
+              {step === 5 && (
+                <View style={{ gap: 14 }}>
+                  {isCalculating ? (
+                    <View style={{ alignItems: "center", paddingVertical: 40, gap: 12 }}>
+                      <ActivityIndicator size="large" color={colors.primary} />
+                      <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                        Calculating your personalised plan...
+                      </Text>
+                    </View>
+                  ) : calculatedGoals ? (
+                    <>
+                      {/* AI explanation */}
+                      <View style={{
+                        backgroundColor: `${colors.primary}12`,
+                        borderWidth: 1.5, borderColor: colors.primary,
+                        borderRadius: radius.lg, padding: 14,
+                      }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                          <View style={{
+                            width: 32, height: 32, borderRadius: 16,
+                            backgroundColor: colors.primary,
+                            alignItems: "center", justifyContent: "center",
+                          }}>
+                            <Target size={16} color="#fff" strokeWidth={2.5} />
+                          </View>
+                          <Text style={{ fontSize: 14, fontWeight: "800", color: colors.primary }}>
+                            GlucoLens AI
+                          </Text>
+                        </View>
+                        <Text style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 18 }}>
+                          {calculatedGoals.explanation}
+                        </Text>
+                      </View>
+
+                      {/* Goal cards */}
+                      <View style={{ flexDirection: "row", gap: 8 }}>
+                        {[
+                          { Icon: Flame, value: `${calculatedGoals.dailyCalorieGoal}`, unit: "kcal/day", color: "#f59e0b" },
+                          { Icon: Droplets, value: `${calculatedGoals.maxDailySugar}g`, unit: "max sugar", color: "#ef4444" },
+                          { Icon: Wheat, value: `${calculatedGoals.maxDailyCarbs}g`, unit: "max carbs", color: colors.primary },
+                        ].map((m, idx) => (
+                          <View key={idx} style={{
+                            flex: 1,
+                            backgroundColor: colors.background,
+                            borderWidth: 1,
+                            borderColor: `${colors.textPrimary}10`,
+                            borderRadius: radius.lg,
+                            padding: 12,
+                            alignItems: "center",
+                          }}>
+                            <m.Icon size={20} color={m.color} strokeWidth={1.5} style={{ marginBottom: 6 }} />
+                            <Text style={{ fontSize: 18, fontWeight: "800", color: colors.textPrimary }}>{m.value}</Text>
+                            <Text style={{ fontSize: 10, color: colors.textSecondary, textAlign: "center" }}>{m.unit}</Text>
+                          </View>
+                        ))}
+                      </View>
+
+                      {/* BMI */}
+                      <View style={{
+                        flexDirection: "row", alignItems: "center", gap: 12,
+                        backgroundColor: colors.background,
+                        borderWidth: 1, borderColor: `${colors.textPrimary}10`,
+                        borderRadius: radius.md, padding: 12,
+                      }}>
+                        <View style={{ alignItems: "center", minWidth: 48 }}>
+                          <Text style={{ fontSize: 20, fontWeight: "800", color: colors.textPrimary }}>{calculatedGoals.bmi}</Text>
+                          <Text style={{ fontSize: 10, color: colors.textSecondary }}>BMI</Text>
+                        </View>
+                        <View style={{ width: 1, height: 28, backgroundColor: `${colors.textPrimary}15` }} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.textPrimary }}>{calculatedGoals.bmiCategory}</Text>
+                          <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 15 }}>
+                            Based on your height and weight
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Disclaimer */}
+                      <View style={{
+                        backgroundColor: "#1a1a2e",
+                        borderWidth: 1.5, borderColor: "#fbbf24",
+                        borderRadius: radius.lg, padding: 14,
+                      }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                          <AlertTriangle size={16} color="#fbbf24" />
+                          <Text style={{ fontSize: 12, fontWeight: "800", color: "#fbbf24" }}>IMPORTANT DISCLAIMER</Text>
+                        </View>
+                        <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 17, marginBottom: 6 }}>
+                          GlucoLens is a <Text style={{ fontWeight: "700", color: colors.textPrimary }}>tool and guide</Text> powered by AI. It is designed to help you make informed food choices but is <Text style={{ fontWeight: "700", color: colors.textPrimary }}>not a substitute for professional medical advice</Text>.
+                        </Text>
+                        <Text style={{ fontSize: 11, color: "#fbbf24", lineHeight: 17, fontWeight: "600" }}>
+                          Your GP must be consulted for all medical decisions.
+                        </Text>
+                      </View>
+
+                      {/* Accept checkbox */}
+                      <Pressable
+                        onPress={() => {
+                          const now = new Date().toISOString();
+                          setAcceptedDisclaimer(!acceptedDisclaimer);
+                          setDisclaimerAcceptedAt(acceptedDisclaimer ? null : now);
+                        }}
+                        style={{
+                          flexDirection: "row", alignItems: "center", gap: 12,
+                          padding: 14, borderRadius: radius.lg,
+                          borderWidth: 2,
+                          borderColor: acceptedDisclaimer ? colors.primary : `${colors.textPrimary}15`,
+                          backgroundColor: acceptedDisclaimer ? `${colors.primary}10` : colors.background,
+                        }}
+                      >
                         <View style={{
-                          width: 32, height: 32, borderRadius: 16,
-                          backgroundColor: colors.primary,
+                          width: 24, height: 24, borderRadius: 6,
+                          borderWidth: 2,
+                          borderColor: acceptedDisclaimer ? colors.primary : colors.textSecondary,
+                          backgroundColor: acceptedDisclaimer ? colors.primary : "transparent",
                           alignItems: "center", justifyContent: "center",
                         }}>
-                          <Target size={16} color="#fff" strokeWidth={2.5} />
+                          {acceptedDisclaimer && <CheckCircle size={14} color="#fff" strokeWidth={3} />}
                         </View>
-                        <View>
-                          <Text style={{ fontSize: 14, fontWeight: "800", color: colors.primary }}>
-                            GlucoLens AI Specialist
-                          </Text>
-                          <Text style={{ fontSize: 11, color: colors.textSecondary }}>
-                            Your personalised daily targets
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textPrimary, marginBottom: 4 }}>
-                        Start your journey with GlucoLens
-                      </Text>
-                      <Text style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 18 }}>
-                        {calculatedGoals.explanation}
-                      </Text>
-                    </View>
-
-                    {/* Your Daily Goals */}
-                    <View style={{ flexDirection: "row", gap: 10 }}>
-                      {[
-                        { Icon: Flame, value: `${calculatedGoals.dailyCalorieGoal}`, unit: "kcal/day" },
-                        { Icon: Droplets, value: `${calculatedGoals.maxDailySugar}g`, unit: "max sugar" },
-                        { Icon: Wheat, value: `${calculatedGoals.maxDailyCarbs}g`, unit: "max carbs" },
-                      ].map((m, idx) => (
-                        <View key={idx} style={{
-                          flex: 1,
-                          backgroundColor: colors.background,
-                          borderWidth: 1,
-                          borderColor: `${colors.textPrimary}15`,
-                          borderRadius: radius.lg,
-                          padding: 12,
-                          alignItems: "center",
-                        }}>
-                          <m.Icon size={20} color={colors.primary} strokeWidth={1.5} style={{ marginBottom: 4 }} />
-                          <Text style={{ fontSize: 16, fontWeight: "800", color: colors.textPrimary }}>{m.value}</Text>
-                          <Text style={{ fontSize: 10, color: colors.textSecondary, textAlign: "center" }}>{m.unit}</Text>
-                        </View>
-                      ))}
-                    </View>
-
-                    {/* What these numbers mean */}
-                    <View style={{
-                      backgroundColor: colors.background,
-                      borderWidth: 1,
-                      borderColor: `${colors.textPrimary}10`,
-                      borderRadius: radius.md,
-                      padding: 12,
-                    }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                        <Info size={14} color={colors.primary} />
-                        <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textPrimary }}>
-                          What do these numbers mean?
+                        <Text style={{ flex: 1, fontSize: 12, color: colors.textPrimary, lineHeight: 17 }}>
+                          I understand GlucoLens is an AI guide and <Text style={{ fontWeight: "700" }}>not a replacement for my doctor</Text>.
                         </Text>
-                      </View>
-                      <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 17, marginBottom: 6 }}>
-                        <Text style={{ fontWeight: "700", color: colors.textPrimary }}>Calories </Text>
-                        are the energy your body gets from food. Eating too many leads to weight gain; too few and you'll feel tired. Your target is based on your height, weight, age, and activity level.
+                      </Pressable>
+                    </>
+                  ) : (
+                    <View style={{ alignItems: "center", paddingVertical: 24, gap: 12 }}>
+                      <Text style={{ fontSize: 13, color: colors.textSecondary, textAlign: "center" }}>
+                        Something went wrong calculating your goals.
                       </Text>
-                      <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 17, marginBottom: 6 }}>
-                        <Text style={{ fontWeight: "700", color: colors.textPrimary }}>Sugar </Text>
-                        is what spikes your blood glucose the most. Keeping daily sugar intake low is critical for managing diabetes and preventing energy crashes.
-                      </Text>
-                      <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 17 }}>
-                        <Text style={{ fontWeight: "700", color: colors.textPrimary }}>Carbs (Carbohydrates) </Text>
-                        break down into glucose in your body. Monitoring carbs helps you predict blood sugar changes and keep levels stable throughout the day.
-                      </Text>
+                      <Pressable
+                        onPress={() => runGoalCalculation()}
+                        style={{
+                          paddingHorizontal: 20, paddingVertical: 10,
+                          borderRadius: radius.md,
+                          borderWidth: 1, borderColor: `${colors.textPrimary}15`,
+                        }}
+                      >
+                        <Text style={{ fontSize: 13, color: colors.textPrimary, fontWeight: "600" }}>Try Again</Text>
+                      </Pressable>
                     </View>
+                  )}
+                </View>
+              )}
+            </View>
 
-                    {/* BMI section with explanation */}
-                    <View style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 12,
-                      backgroundColor: colors.card,
-                      borderWidth: 1,
-                      borderColor: `${colors.textPrimary}15`,
-                      borderRadius: radius.md,
-                      padding: 12,
-                    }}>
-                      <View style={{ alignItems: "center", minWidth: 48 }}>
-                        <Text style={{ fontSize: 16, fontWeight: "800", color: colors.textPrimary }}>
-                          {calculatedGoals.bmi}
-                        </Text>
-                        <Text style={{ fontSize: 10, color: colors.textSecondary }}>BMI</Text>
-                      </View>
-                      <View style={{ width: 1, height: 32, backgroundColor: `${colors.textPrimary}20` }} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.textPrimary }}>
-                          {calculatedGoals.bmiCategory}
-                        </Text>
-                        <Text style={{ fontSize: 10, color: colors.textSecondary, lineHeight: 14 }}>
-                          BMI (Body Mass Index) measures if your weight is healthy for your height. It helps us set the right calorie target for you.
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Disclaimer */}
-                    <View style={{
-                      backgroundColor: "#1a1a2e",
-                      borderWidth: 1.5,
-                      borderColor: "#fbbf24",
-                      borderRadius: radius.lg,
-                      padding: 14,
-                    }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                        <AlertTriangle size={16} color="#fbbf24" />
-                        <Text style={{ fontSize: 12, fontWeight: "800", color: "#fbbf24" }}>
-                          IMPORTANT DISCLAIMER
-                        </Text>
-                      </View>
-                      <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 17, marginBottom: 8 }}>
-                        GlucoLens was founded by Justin in South Africa, who lives with diabetes and needed an app to better understand his sugar intake for healthier daily decisions.
-                      </Text>
-                      <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 17, marginBottom: 8 }}>
-                        This app is a <Text style={{ fontWeight: "700", color: colors.textPrimary }}>tool and guide</Text> powered by sophisticated AI technology. It is designed to help you make more informed food choices — but it is <Text style={{ fontWeight: "700", color: colors.textPrimary }}>not a substitute for professional medical advice</Text>.
-                      </Text>
-                      <Text style={{ fontSize: 11, color: "#fbbf24", lineHeight: 17, fontWeight: "600" }}>
-                        Your GP or healthcare provider must be consulted at all times for medical decisions regarding your diabetes management.
-                      </Text>
-                    </View>
-
-                    {/* Accept checkbox */}
-                    <Pressable
-                      onPress={() => {
-                        const now = new Date().toISOString();
-                        setAcceptedDisclaimer(!acceptedDisclaimer);
-                        setDisclaimerAcceptedAt(acceptedDisclaimer ? null : now);
-                      }}
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 12,
-                        padding: 14,
-                        borderRadius: radius.lg,
-                        borderWidth: 2,
-                        borderColor: acceptedDisclaimer ? colors.primary : `${colors.textPrimary}20`,
-                        backgroundColor: acceptedDisclaimer ? `${colors.primary}10` : colors.background,
-                      }}
-                    >
-                      <View style={{
-                        width: 24, height: 24, borderRadius: 6,
-                        borderWidth: 2,
-                        borderColor: acceptedDisclaimer ? colors.primary : colors.textSecondary,
-                        backgroundColor: acceptedDisclaimer ? colors.primary : "transparent",
-                        alignItems: "center", justifyContent: "center",
-                      }}>
-                        {acceptedDisclaimer && <CheckCircle size={14} color="#fff" strokeWidth={3} />}
-                      </View>
-                      <Text style={{ flex: 1, fontSize: 12, color: colors.textPrimary, lineHeight: 17 }}>
-                        I understand that GlucoLens is an AI-powered guide and <Text style={{ fontWeight: "700" }}>not a replacement for my doctor</Text>. I will consult my GP for all medical decisions.
-                      </Text>
-                    </Pressable>
-
-                    <Text style={{ textAlign: "center", fontSize: 11, color: colors.textSecondary }}>
-                      You can adjust these goals anytime in your Profile settings.
-                    </Text>
-                  </>
-                ) : (
-                  <View style={{ alignItems: "center", paddingVertical: 24, gap: 12 }}>
-                    <Text style={{ fontSize: 13, color: colors.textSecondary, textAlign: "center" }}>
-                      Something went wrong calculating your goals.
-                    </Text>
-                    <Pressable
-                      onPress={() => runGoalCalculation()}
-                      style={{
-                        paddingHorizontal: 20,
-                        paddingVertical: 10,
-                        borderRadius: radius.md,
-                        borderWidth: 1,
-                        borderColor: `${colors.textPrimary}15`,
-                      }}
-                    >
-                      <Text style={{ fontSize: 13, color: colors.textPrimary, fontWeight: "600" }}>Try Again</Text>
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {/* Navigation buttons */}
+            {/* ── Navigation buttons ── */}
             <View style={{
               flexDirection: "row",
               justifyContent: "space-between",
               alignItems: "center",
               marginTop: 24,
-              paddingTop: 20,
-              borderTopWidth: 1,
-              borderTopColor: `${colors.textPrimary}10`,
             }}>
               <Pressable
-                onPress={() => step > 1 ? setStep(s => s - 1) : undefined}
+                onPress={handleBack}
                 disabled={step === 1}
                 style={({ pressed }) => ({
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                  borderRadius: radius.md,
+                  paddingHorizontal: 16, paddingVertical: 14,
+                  borderRadius: radius.lg,
                   opacity: step === 1 ? 0.3 : pressed ? 0.6 : 1,
                 })}
               >
@@ -1018,14 +907,16 @@ export default function Onboarding() {
                   onPress={handleNext}
                   disabled={!canProceed()}
                   style={({ pressed }) => ({
-                    paddingHorizontal: 24,
-                    paddingVertical: 12,
+                    paddingHorizontal: 28, paddingVertical: 14,
                     borderRadius: radius.lg,
                     backgroundColor: colors.primary,
                     opacity: !canProceed() ? 0.4 : pressed ? 0.8 : 1,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 6,
+                    flexDirection: "row", alignItems: "center", gap: 6,
+                    shadowColor: colors.primary,
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: canProceed() ? 0.3 : 0,
+                    shadowRadius: 12,
+                    elevation: canProceed() ? 6 : 0,
                   })}
                 >
                   <Text style={{ fontSize: 15, color: "#fff", fontWeight: "700" }}>Continue</Text>
@@ -1034,38 +925,31 @@ export default function Onboarding() {
               ) : (
                 <Pressable
                   onPress={handleFinish}
-                  disabled={upsertProfile.isPending || !calculatedGoals || isCalculating}
+                  disabled={upsertProfile.isPending || !calculatedGoals || isCalculating || !acceptedDisclaimer}
                   style={({ pressed }) => ({
-                    paddingHorizontal: 24,
-                    paddingVertical: 12,
+                    paddingHorizontal: 28, paddingVertical: 14,
                     borderRadius: radius.lg,
                     backgroundColor: colors.primary,
-                    opacity: (upsertProfile.isPending || !calculatedGoals || isCalculating) ? 0.4 : pressed ? 0.8 : 1,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 6,
+                    opacity: (upsertProfile.isPending || !calculatedGoals || isCalculating || !acceptedDisclaimer) ? 0.4 : pressed ? 0.8 : 1,
+                    flexDirection: "row", alignItems: "center", gap: 6,
+                    shadowColor: colors.primary,
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 12,
+                    elevation: 6,
                   })}
                 >
                   {upsertProfile.isPending
                     ? <ActivityIndicator color="#fff" size="small" />
                     : <>
                         <Text style={{ fontSize: 15, color: "#fff", fontWeight: "700" }}>Start GlucoLens</Text>
-                        <CheckCircle size={16} color="#fff" strokeWidth={2} />
+                        <ChevronRight size={16} color="#fff" strokeWidth={2} />
                       </>
                   }
                 </Pressable>
               )}
             </View>
-          </View>
-
-          <Text style={{
-            textAlign: "center",
-            fontSize: 12,
-            color: colors.textSecondary,
-            marginTop: 12,
-          }}>
-            Step {step} of {STEPS.length} — {STEPS[step - 1].title}
-          </Text>
+          </Animated.View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
