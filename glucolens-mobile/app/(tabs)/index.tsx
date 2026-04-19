@@ -39,6 +39,18 @@ import {
   TrendingUp,
   User,
   Droplets,
+  Salad,
+  Soup,
+  Sandwich,
+  Pizza,
+  Fish,
+  Beef,
+  Apple,
+  CupSoda,
+  CakeSlice,
+  Wheat,
+  Egg,
+  type LucideIcon,
 } from "lucide-react-native";
 import { format, startOfDay, endOfDay } from "date-fns";
 
@@ -86,27 +98,20 @@ function getMealLabel(loggedAt: string): string {
   return "Dinner";
 }
 
-function getFoodEmoji(name: string): string {
+function getFoodIcon(name: string): LucideIcon {
   const n = name.toLowerCase();
-  if (/salad|greens|lettuce|spinach/.test(n)) return "🥗";
-  if (/wrap|burrito|taco|tortilla/.test(n)) return "🌯";
-  if (/rice|pilaf|risotto/.test(n)) return "🍚";
-  if (/pasta|spaghetti|noodle|linguine/.test(n)) return "🍝";
-  if (/chicken|poultry|turkey/.test(n)) return "🍗";
-  if (/beef|steak|burger/.test(n)) return "🥩";
-  if (/fish|salmon|tuna|seafood|prawn/.test(n)) return "🐟";
-  if (/egg|omelette|frittata/.test(n)) return "🍳";
-  if (/soup|stew|broth/.test(n)) return "🍲";
-  if (/sandwich|toast|bread/.test(n)) return "🥪";
-  if (/pizza/.test(n)) return "🍕";
-  if (/sushi|roll/.test(n)) return "🍱";
-  if (/fruit|apple|banana|berry|mango/.test(n)) return "🍎";
-  if (/smoothie|juice|shake|drink/.test(n)) return "🥤";
-  if (/yogurt|oats|cereal|porridge/.test(n)) return "🥣";
-  if (/curry|dal|lentil/.test(n)) return "🍛";
-  if (/snack|nut|almond|cashew/.test(n)) return "🥜";
-  if (/sweet|cake|dessert|chocolate|cookie/.test(n)) return "🍰";
-  return "🍽️";
+  if (/salad|greens|lettuce|spinach|wrap|burrito|taco|tortilla/.test(n)) return Salad;
+  if (/soup|stew|broth|curry|dal|lentil/.test(n)) return Soup;
+  if (/sandwich|toast|bread/.test(n)) return Sandwich;
+  if (/pizza/.test(n)) return Pizza;
+  if (/fish|salmon|tuna|seafood|prawn|sushi|roll/.test(n)) return Fish;
+  if (/beef|steak|burger|chicken|poultry|turkey/.test(n)) return Beef;
+  if (/fruit|apple|banana|berry|mango/.test(n)) return Apple;
+  if (/smoothie|juice|shake|drink/.test(n)) return CupSoda;
+  if (/sweet|cake|dessert|chocolate|cookie/.test(n)) return CakeSlice;
+  if (/rice|pilaf|risotto|pasta|spaghetti|noodle|linguine|yogurt|oats|cereal|porridge|snack|nut|almond|cashew/.test(n)) return Wheat;
+  if (/egg|omelette|frittata/.test(n)) return Egg;
+  return UtensilsCrossed;
 }
 
 // ─── Summary stat column ────────────────────────────────────────────────────
@@ -190,7 +195,10 @@ function RecentMealCard({ meal, diabetesType, onPress }: {
       })}
     >
       <View style={{ height: 90, backgroundColor: ratingBg(rating ?? undefined), alignItems: "center", justifyContent: "center" }}>
-        <Text style={{ fontSize: 42 }}>{getFoodEmoji(meal.mealName)}</Text>
+        {(() => {
+          const Icon = getFoodIcon(meal.mealName);
+          return <Icon size={36} color={col} strokeWidth={1.5} />;
+        })()}
       </View>
       <View style={{ padding: 10 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>

@@ -29,6 +29,7 @@ import {
   Minus,
   Ruler,
   Calendar,
+  Sparkles,
 } from "lucide-react-native";
 import { format, startOfWeek, addWeeks } from "date-fns";
 
@@ -297,7 +298,7 @@ export default function ProgressScreen() {
           }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
               <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
-                <Text style={{ fontSize: 18 }}>🤖</Text>
+                <Sparkles size={18} color={colors.background} strokeWidth={2.5} />
               </View>
               <View>
                 <Text style={{ fontSize: 14, fontWeight: "700", color: colors.primary }}>GlucoBot Coach</Text>
@@ -305,7 +306,7 @@ export default function ProgressScreen() {
               </View>
             </View>
             <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 20 }}>
-              Great work tracking your progress! Consistency is key — taking weekly measurements and photos helps you see changes that the scale can't show. Keep logging your meals and staying active. You're building habits that will serve you for life. 💪
+              Great work tracking your progress. Consistency is what moves the needle — weekly measurements and photos show changes the scale hides. Keep logging your meals and staying active. You're building habits that will serve you for life.
             </Text>
           </View>
         </View>

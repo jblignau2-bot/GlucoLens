@@ -29,6 +29,7 @@ import {
   Droplets,
   ChevronDown,
   ChevronUp,
+  Sparkles,
 } from "lucide-react-native";
 
 // ─── Guide Data ─────────────────────────────────────────────────────────────
@@ -211,7 +212,7 @@ function ContentCard({ card, expanded, onToggle, accentColor }: {
             borderColor: "rgba(20,184,166,0.2)",
           }}>
             <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontSize: 16 }}>🤖</Text>
+              <Sparkles size={16} color={colors.background} strokeWidth={2.5} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>Want to know more?</Text>

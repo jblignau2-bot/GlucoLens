@@ -6,6 +6,7 @@ import { Home, LayoutGrid, Camera, BookOpen, User } from "lucide-react-native";
 import { colors } from "@/constants/tokens";
 import { trpc } from "@/lib/trpc";
 import { useProfileStore } from "@/stores/profileStore";
+import { useRetailerStore } from "@/stores/retailerStore";
 
 // ── Floating Scan FAB in the centre of the tab bar with animated teal glow ───
 function ScanTabIcon({ focused }: { focused: boolean }) {
@@ -60,10 +61,22 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const setProfile = useProfileStore((s) => s.setProfile);
   const existingProfile = useProfileStore((s) => s.profile);
+  const profileHydrated = useProfileStore((s) => s.hydrated);
+  const hydrateProfile = useProfileStore((s) => s.hydrate);
+  const retailerHydrated = useRetailerStore((s) => s.hydrated);
+  const hydrateRetailer = useRetailerStore((s) => s.hydrate);
 
-  // Hydrate profile store from API on mount (covers app restart)
+  // 1. Hydrate from AsyncStorage first (offline-friendly, instant)
+  useEffect(() => {
+    if (!profileHydrated) hydrateProfile();
+    if (!retailerHydrated) hydrateRetailer();
+  }, [profileHydrated, retailerHydrated, hydrateProfile, hydrateRetailer]);
+
+  // 2. Then try to refresh from API in the background (best-effort).
+  //    Only fires once we've hydrated locally and only if we still have nothing.
   const { data: profileData } = trpc.profile.get.useQuery(undefined, {
-    enabled: !existingProfile,
+    enabled: profileHydrated && !existingProfile,
+    retry: false,
   });
 
   useEffect(() => {

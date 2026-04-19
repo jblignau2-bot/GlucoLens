@@ -13,7 +13,7 @@ import { colors, radius, spacing } from "@/constants/tokens";
 import {
   User, Globe, HeartPulse, Target, CheckCircle, Syringe, Activity,
   HelpCircle, ShieldCheck, Flame, Droplets, Wheat, ChevronRight, ChevronLeft,
-  Info, AlertTriangle, Pill,
+  Info, AlertTriangle, Pill, Sofa, Footprints, Dumbbell,
 } from "lucide-react-native";
 
 // ─── Local goal calculation (no backend needed) ───────────────────────────────
@@ -123,13 +123,12 @@ const COUNTRIES = [
   { name: "Zimbabwe", code: "ZW", flag: "\u{1F1FF}\u{1F1FC}" },
 ];
 
-// ─── Step config with hero emoji + subtitle ─────────────────────────────────
+// ─── Step config (icon-driven, no emojis) ────────────────────────────────────
 const STEPS = [
-  { id: 1, title: "What's your name?", desc: "Let's make this personal", icon: User, hero: "\u{1F44B}", heroLabel: "Welcome to GlucoLens" },
-  { id: 2, title: "Where are you based?", desc: "For local food recognition", icon: Globe, hero: "\u{1F30D}", heroLabel: "We'll tailor meals to your region" },
-  { id: 3, title: "About you", desc: "Height, weight, age & health", icon: HeartPulse, hero: "\u{1F4AA}", heroLabel: "This powers your AI calculations" },
-  { id: 4, title: "Your condition", desc: "So we know how to help", icon: Target, hero: "\u{1F3AF}", heroLabel: "Pick what matches you best" },
-  { id: 5, title: "Your plan is ready", desc: "AI-calculated daily targets", icon: CheckCircle, hero: "\u{1F680}", heroLabel: "Let's go!" },
+  { id: 1, title: "What's your name?", desc: "Let's make this personal", icon: User, heroLabel: "Welcome to GlucoLens" },
+  { id: 2, title: "Where are you based?", desc: "For local food recognition", icon: Globe, heroLabel: "We'll tailor meals to your region" },
+  { id: 3, title: "About you", desc: "Health details & condition", icon: HeartPulse, heroLabel: "This powers your AI calculations" },
+  { id: 4, title: "Your plan is ready", desc: "AI-calculated daily targets", icon: CheckCircle, heroLabel: "Let's go!" },
 ];
 
 interface GoalResult {
@@ -243,9 +242,12 @@ export default function Onboarding() {
   const canProceed = () => {
     if (step === 1) return form.firstName.trim().length > 0 && form.lastName.trim().length > 0;
     if (step === 2) return form.country.length > 0;
-    if (step === 3) return form.heightCm.length > 0 && form.weightKg.length > 0 && form.age.length > 0 && form.gender.length > 0;
-    if (step === 4) return form.diabetesType.length > 0;
-    if (step === 5) return !!calculatedGoals && acceptedDisclaimer;
+    if (step === 3) return (
+      form.heightCm.length > 0 && form.weightKg.length > 0 &&
+      form.age.length > 0 && form.gender.length > 0 &&
+      form.diabetesType.length > 0
+    );
+    if (step === 4) return !!calculatedGoals && acceptedDisclaimer;
     return true;
   };
 
@@ -289,10 +291,10 @@ export default function Onboarding() {
   }
 
   function handleNext() {
-    if (step === 4) {
-      animateStep(5);
+    if (step === 3) {
+      animateStep(4);
       setTimeout(() => runGoalCalculation(), 150);
-    } else if (step < 5) {
+    } else if (step < 4) {
       animateStep(step + 1);
     }
   }
@@ -302,8 +304,36 @@ export default function Onboarding() {
   }
 
   async function handleFinish() {
+    const diabetesTypeToSend = form.diabetesType || "type2";
+
+    // Build the local profile object up front so we always have a valid record
+    // to hand the rest of the app, even if the backend call fails or times out.
+    const localProfile = {
+      id: 0,
+      firstName: form.firstName,
+      lastName: form.lastName,
+      country: form.country,
+      countryCode: form.countryCode,
+      countryFlag: form.countryFlag,
+      heightCm: Number(form.heightCm),
+      weightKg: Number(form.weightKg),
+      age: Number(form.age),
+      gender: form.gender as any,
+      activityLevel: form.activityLevel as any,
+      diabetesType: diabetesTypeToSend as any,
+      dailyCalorieGoal: form.dailyCalorieGoal,
+      maxDailySugar: form.maxDailySugar,
+      maxDailyCarbs: form.maxDailyCarbs,
+      allergies: form.allergies || undefined,
+      medication: form.medication || undefined,
+      onboardingComplete: true,
+    };
+
+    // 1. Always save locally — this is the source of truth while the backend is offline.
+    setProfile(localProfile as any);
+
+    // 2. Try the backend as best-effort (silent on failure — user already saw their plan).
     try {
-      const diabetesTypeToSend = form.diabetesType || "type2";
       const savedData = await upsertProfile.mutateAsync({
         firstName: form.firstName,
         lastName: form.lastName,
@@ -326,17 +356,14 @@ export default function Onboarding() {
           : undefined,
         onboardingComplete: 1,
       } as any);
-
       if (savedData) setProfile(savedData as any);
-      router.replace("/(tabs)");
     } catch (e: any) {
-      console.warn("Profile save failed:", e.message);
-      Toast.show({
-        type: "error", text1: "Save failed",
-        text2: "Your profile could not be saved. Please check your connection and try again.",
-        visibilityTime: 4000,
-      });
+      // Silent — backend may be offline, local profile is already persisted.
+      console.warn("Profile sync to backend deferred:", e?.message);
     }
+
+    // 3. Regardless of backend outcome, continue into the app.
+    router.replace("/(tabs)");
   }
 
   if (checkingProfile) return (
@@ -402,10 +429,11 @@ export default function Onboarding() {
               <View style={{
                 width: 80, height: 80, borderRadius: 40,
                 backgroundColor: `${colors.primary}12`,
+                borderWidth: 1, borderColor: colors.glassBorder,
                 alignItems: "center", justifyContent: "center",
                 marginBottom: 16,
               }}>
-                <Text style={{ fontSize: 40 }}>{currentStep.hero}</Text>
+                <currentStep.icon size={36} color={colors.primary} strokeWidth={1.75} />
               </View>
               <Text style={{
                 fontSize: 24, fontWeight: "800", color: colors.textPrimary,
@@ -608,10 +636,10 @@ export default function Onboarding() {
                     <Text style={labelStyle}>ACTIVITY LEVEL</Text>
                     <View style={{ gap: 6 }}>
                       {([
-                        { value: "sedentary", label: "Sedentary", emoji: "\u{1F6CB}\u{FE0F}", desc: "Desk job, little movement" },
-                        { value: "light", label: "Lightly Active", emoji: "\u{1F6B6}", desc: "Walking 1-3 days/week" },
-                        { value: "moderate", label: "Fairly Active", emoji: "\u{1F3C3}", desc: "Exercise 3-5 days/week" },
-                        { value: "active", label: "Very Active", emoji: "\u{1F3CB}\u{FE0F}", desc: "Hard exercise 6-7 days/week" },
+                        { value: "sedentary", label: "Sedentary", Icon: Sofa, desc: "Desk job, little movement" },
+                        { value: "light", label: "Lightly Active", Icon: Footprints, desc: "Walking 1-3 days/week" },
+                        { value: "moderate", label: "Fairly Active", Icon: Activity, desc: "Exercise 3-5 days/week" },
+                        { value: "active", label: "Very Active", Icon: Dumbbell, desc: "Hard exercise 6-7 days/week" },
                       ] as const).map(a => (
                         <Pressable
                           key={a.value}
@@ -624,13 +652,79 @@ export default function Onboarding() {
                             backgroundColor: form.activityLevel === a.value ? `${colors.primary}10` : colors.background,
                           }}
                         >
-                          <Text style={{ fontSize: 20 }}>{a.emoji}</Text>
+                          <View style={{
+                            width: 34, height: 34, borderRadius: 10,
+                            backgroundColor: form.activityLevel === a.value ? `${colors.primary}20` : colors.card,
+                            alignItems: "center", justifyContent: "center",
+                          }}>
+                            <a.Icon size={18} color={form.activityLevel === a.value ? colors.primary : colors.textSecondary} strokeWidth={2} />
+                          </View>
                           <View style={{ flex: 1 }}>
                             <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textPrimary }}>{a.label}</Text>
                             <Text style={{ fontSize: 11, color: colors.textSecondary }}>{a.desc}</Text>
                           </View>
                           {form.activityLevel === a.value && (
                             <CheckCircle size={18} color={colors.primary} strokeWidth={2.5} />
+                          )}
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* ── Diabetes type (merged from old Step 4) ── */}
+                  <View>
+                    <Text style={labelStyle}>YOUR CONDITION *</Text>
+                    <View style={{ gap: 8 }}>
+                      {([
+                        {
+                          value: "type1", Icon: Syringe,
+                          label: "Type 1 Diabetes",
+                          desc: "Insulin-dependent. Consistent carbs for accurate dosing.",
+                        },
+                        {
+                          value: "type2", Icon: Activity,
+                          label: "Type 2 Diabetes",
+                          desc: "Insulin resistant. Low sugar, low GI, portion control.",
+                        },
+                        {
+                          value: "unsure", Icon: HelpCircle,
+                          label: "Pre-Diabetes / Unsure",
+                          desc: "Higher than normal blood sugar. Focus on prevention.",
+                        },
+                        {
+                          value: "none", Icon: ShieldCheck,
+                          label: "Health Conscious",
+                          desc: "No diabetes — eat smarter, manage weight.",
+                        },
+                      ] as const).map(t => (
+                        <Pressable
+                          key={t.value}
+                          onPress={() => update("diabetesType", t.value)}
+                          style={{
+                            flexDirection: "row", alignItems: "center", gap: 12,
+                            padding: 12, borderRadius: radius.lg,
+                            borderWidth: 1.5,
+                            borderColor: form.diabetesType === t.value ? colors.primary : `${colors.textPrimary}10`,
+                            backgroundColor: form.diabetesType === t.value ? `${colors.primary}10` : colors.background,
+                          }}
+                        >
+                          <View style={{
+                            width: 38, height: 38, borderRadius: 12,
+                            backgroundColor: form.diabetesType === t.value ? `${colors.primary}20` : colors.card,
+                            alignItems: "center", justifyContent: "center",
+                          }}>
+                            <t.Icon size={20} color={form.diabetesType === t.value ? colors.primary : colors.textSecondary} strokeWidth={2} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textPrimary, marginBottom: 2 }}>
+                              {t.label}
+                            </Text>
+                            <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 15 }}>
+                              {t.desc}
+                            </Text>
+                          </View>
+                          {form.diabetesType === t.value && (
+                            <CheckCircle size={20} color={colors.primary} strokeWidth={2.5} />
                           )}
                         </Pressable>
                       ))}
@@ -681,61 +775,8 @@ export default function Onboarding() {
                 </View>
               )}
 
-              {/* ── STEP 4: Diabetes Type ── */}
+              {/* ── STEP 4: Goals & Plan ── */}
               {step === 4 && (
-                <View style={{ gap: 10 }}>
-                  {([
-                    {
-                      value: "type1", icon: Syringe, emoji: "\u{1F489}",
-                      label: "Type 1 Diabetes",
-                      desc: "Insulin-dependent. Focus on consistent carb intake for accurate insulin dosing.",
-                    },
-                    {
-                      value: "type2", icon: Activity, emoji: "\u{1F4C9}",
-                      label: "Type 2 Diabetes",
-                      desc: "Insulin resistant. Focus on low sugar, low GI foods, and portion control.",
-                    },
-                    {
-                      value: "unsure", icon: HelpCircle, emoji: "\u{26A0}\u{FE0F}",
-                      label: "Pre-Diabetes / Unsure",
-                      desc: "Blood sugar higher than normal. Focus on prevention through diet.",
-                    },
-                    {
-                      value: "none", icon: ShieldCheck, emoji: "\u{1F49A}",
-                      label: "Health Conscious",
-                      desc: "No diabetes. I want to eat healthier and manage my weight.",
-                    },
-                  ] as const).map(t => (
-                    <Pressable
-                      key={t.value}
-                      onPress={() => update("diabetesType", t.value)}
-                      style={{
-                        flexDirection: "row", alignItems: "center", gap: 14,
-                        padding: 16, borderRadius: radius.lg,
-                        borderWidth: 2,
-                        borderColor: form.diabetesType === t.value ? colors.primary : `${colors.textPrimary}10`,
-                        backgroundColor: form.diabetesType === t.value ? `${colors.primary}10` : colors.background,
-                      }}
-                    >
-                      <Text style={{ fontSize: 28 }}>{t.emoji}</Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.textPrimary, marginBottom: 2 }}>
-                          {t.label}
-                        </Text>
-                        <Text style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 17 }}>
-                          {t.desc}
-                        </Text>
-                      </View>
-                      {form.diabetesType === t.value && (
-                        <CheckCircle size={22} color={colors.primary} strokeWidth={2.5} />
-                      )}
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-
-              {/* ── STEP 5: Goals ── */}
-              {step === 5 && (
                 <View style={{ gap: 14 }}>
                   {isCalculating ? (
                     <View style={{ alignItems: "center", paddingVertical: 40, gap: 12 }}>
@@ -952,7 +993,7 @@ export default function Onboarding() {
                 </View>
               </Pressable>
 
-              {step < 5 ? (
+              {step < 4 ? (
                 <Pressable
                   onPress={handleNext}
                   disabled={!canProceed()}
