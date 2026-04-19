@@ -812,6 +812,56 @@ export default function Onboarding() {
                         </View>
                       </View>
 
+                      {/* How to use GlucoLens — intro & tips */}
+                      <View style={{
+                        backgroundColor: colors.card,
+                        borderWidth: 1, borderColor: colors.border,
+                        borderRadius: radius.lg, padding: 14,
+                      }}>
+                        <Text style={{ fontSize: 14, fontWeight: "800", color: colors.textPrimary, marginBottom: 4 }}>
+                          How to use GlucoLens
+                        </Text>
+                        <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 12, lineHeight: 16 }}>
+                          A quick tour so you hit the ground running.
+                        </Text>
+                        {[
+                          { n: "1", t: "Scan a food", d: "Tap the camera in the middle of the tab bar. Point it at any food — GlucoBot will read the label and tell you if it's safe, moderate, or risky." },
+                          { n: "2", t: "Log what you eat", d: "Open Log to add meals by searching. Adjust grams with +/−. Tag as breakfast, lunch, dinner or snack." },
+                          { n: "3", t: "Log your glucose", d: "Big number, easy stepper. Pick fasting/pre-meal/post-meal so the trends make sense later." },
+                          { n: "4", t: "Ask GlucoBot", d: "Every article and every log has an 'Ask GlucoBot' button. Ask it anything — it gives you an honest answer, not fluff." },
+                          { n: "5", t: "Check your Guide", d: "The Guide tab is your food playbook — what to eat, what to dodge, and why. With examples, not lectures." },
+                        ].map((tip, i) => (
+                          <View key={i} style={{ flexDirection: "row", gap: 10, marginBottom: i < 4 ? 10 : 0 }}>
+                            <View style={{
+                              width: 22, height: 22, borderRadius: 11,
+                              backgroundColor: colors.primary,
+                              alignItems: "center", justifyContent: "center",
+                              marginTop: 1,
+                            }}>
+                              <Text style={{ fontSize: 10, fontWeight: "800", color: colors.background }}>{tip.n}</Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textPrimary, marginBottom: 2 }}>{tip.t}</Text>
+                              <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 15 }}>{tip.d}</Text>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+
+                      {/* Pro tips */}
+                      <View style={{
+                        backgroundColor: colors.cardAlt,
+                        borderLeftWidth: 3, borderLeftColor: colors.primary,
+                        borderRadius: radius.md, padding: 12,
+                      }}>
+                        <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary, letterSpacing: 0.5, marginBottom: 6 }}>
+                          PRO TIP
+                        </Text>
+                        <Text style={{ fontSize: 11, color: colors.textSecondary, lineHeight: 16 }}>
+                          Log glucose BEFORE and 90 minutes AFTER the same meal for a week. Patterns show up fast — and GlucoBot can tell you exactly what's spiking you.
+                        </Text>
+                      </View>
+
                       {/* Disclaimer */}
                       <View style={{
                         backgroundColor: "#1a1a2e",

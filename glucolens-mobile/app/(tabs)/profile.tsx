@@ -42,7 +42,10 @@ import {
   X,
   Pill,
   AlertTriangle,
+  Store,
 } from "lucide-react-native";
+import { useRetailerStore } from "@/stores/retailerStore";
+import { retailerInfo } from "@/constants/tokens";
 import * as Haptics from "expo-haptics";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";
@@ -393,6 +396,10 @@ export default function ProfileScreen() {
   const profileStore = useProfileStore();
   const profile = profileStore.profile;
 
+  const { retailer, hydrate: hydrateRetailer, hydrated: retailerHydrated } = useRetailerStore();
+  useEffect(() => { if (!retailerHydrated) hydrateRetailer(); }, [retailerHydrated, hydrateRetailer]);
+  const retailerLabel = retailer ? retailerInfo[retailer].name : "Tap to choose";
+
   const [diabetesPickerOpen, setDiabetesPickerOpen] = useState(false);
   const [activityPickerOpen, setActivityPickerOpen] = useState(false);
   const [editGoalsOpen, setEditGoalsOpen] = useState(false);
@@ -715,6 +722,15 @@ export default function ProfileScreen() {
             label="Glucose & Weight Log"
             value="Track your blood sugar and weight"
             onPress={() => router.push("/health-log")}
+          />
+
+          {/* ── Shopping ── */}
+          <SectionHeader title="Shopping" />
+          <SettingsRow
+            icon={<Store size={16} color={colors.primary} />}
+            label="Preferred Retailer"
+            value={retailerLabel}
+            onPress={() => router.push("/retailer-picker")}
           />
 
           {/* ── Allergies & Medication (feeds into AI meal planning) ── */}

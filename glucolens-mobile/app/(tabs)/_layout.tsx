@@ -50,7 +50,7 @@ function ScanTabIcon({ focused }: { focused: boolean }) {
           elevation: 16,
         }}
       >
-        <Camera size={26} color="#0b1120" strokeWidth={2.5} />
+        <Camera size={26} color={colors.background} strokeWidth={2.5} />
       </View>
     </View>
   );
@@ -77,7 +77,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: "#64748b",
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
           backgroundColor: "transparent",
           borderTopWidth: 0,
@@ -99,10 +99,10 @@ export default function TabsLayout() {
                 right: "55%",
                 bottom: insets.bottom + 8,
                 height: 56,
-                backgroundColor: "rgba(13,21,37,0.95)",
+                backgroundColor: colors.card,
                 borderRadius: 18,
                 borderWidth: 1,
-                borderColor: "rgba(30,41,59,0.6)",
+                borderColor: colors.border,
               }}
             />
             {/* Right panel */}
@@ -113,10 +113,10 @@ export default function TabsLayout() {
                 right: 10,
                 bottom: insets.bottom + 8,
                 height: 56,
-                backgroundColor: "rgba(13,21,37,0.95)",
+                backgroundColor: colors.card,
                 borderRadius: 18,
                 borderWidth: 1,
-                borderColor: "rgba(30,41,59,0.6)",
+                borderColor: colors.border,
               }}
             />
           </View>
