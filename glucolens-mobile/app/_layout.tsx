@@ -91,6 +91,7 @@ export default function RootLayout() {
               <Stack.Screen name="food-log" options={{}} />
               <Stack.Screen name="reminders" options={{}} />
               <Stack.Screen name="profile-edit" options={{}} />
+              <Stack.Screen name="coach" options={{ animation: "slide_from_bottom" }} />
             </Stack>
             <Toast />
           </SafeAreaProvider>

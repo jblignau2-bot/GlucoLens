@@ -12,8 +12,10 @@ import {
   Pressable,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { colors, radius } from "@/constants/tokens";
+import { GlucoBotDock } from "@/components/GlucoBotDock";
 import {
   Heart,
   Syringe,
@@ -176,11 +178,12 @@ function formatGuideContent(content: string) {
   return <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 20 }}>{content}</Text>;
 }
 
-function ContentCard({ card, expanded, onToggle, accentColor }: {
+function ContentCard({ card, expanded, onToggle, accentColor, onAsk }: {
   card: { title: string; icon: any; content: string };
   expanded: boolean;
   onToggle: () => void;
   accentColor: string;
+  onAsk: () => void;
 }) {
   const Icon = card.icon;
   return (
@@ -200,17 +203,21 @@ function ContentCard({ card, expanded, onToggle, accentColor }: {
             {formatGuideContent(card.content)}
           </View>
           {/* GlucoBot prompt */}
-          <View style={{
+          <Pressable
+            onPress={onAsk}
+            style={({ pressed }) => ({
             marginTop: 16,
-            backgroundColor: "rgba(20,184,166,0.08)",
+            backgroundColor: colors.primaryLight,
             borderRadius: 12,
             padding: 12,
             flexDirection: "row",
             alignItems: "center",
             gap: 10,
             borderWidth: 1,
-            borderColor: "rgba(20,184,166,0.2)",
-          }}>
+            borderColor: colors.glassBorder,
+            opacity: pressed ? 0.8 : 1,
+          })}
+          >
             <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
               <Sparkles size={16} color={colors.background} strokeWidth={2.5} />
             </View>
@@ -218,7 +225,7 @@ function ContentCard({ card, expanded, onToggle, accentColor }: {
               <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>Want to know more?</Text>
               <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>Ask GlucoBot for personalised advice</Text>
             </View>
-          </View>
+          </Pressable>
         </View>
       )}
     </View>
@@ -229,6 +236,7 @@ function ContentCard({ card, expanded, onToggle, accentColor }: {
 
 export default function GlucoseGuideScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [activeCategory, setActiveCategory] = useState("type2");
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
@@ -251,7 +259,7 @@ export default function GlucoseGuideScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 178 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
@@ -276,10 +284,12 @@ export default function GlucoseGuideScreen() {
               expanded={expandedCards.has(card.title)}
               onToggle={() => toggleCard(card.title)}
               accentColor={currentCategory.color}
+              onAsk={() => router.push({ pathname: "/coach", params: { context: `${currentCategory.title}: ${card.title}` } })}
             />
           ))}
         </View>
       </ScrollView>
+      <GlucoBotDock context={`${currentCategory.title} guide`} bottomOffset={insets.bottom + 86} />
     </View>
   );
 }

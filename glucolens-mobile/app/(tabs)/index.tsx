@@ -33,9 +33,9 @@ import { useRouter } from "expo-router";
 import { useState, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { useProfileStore } from "@/stores/profileStore";
-import { colors, radius, fonts, fontSize } from "@/constants/tokens";
+import { colors, radius, fonts } from "@/constants/tokens";
+import { GlucoBotDock } from "@/components/GlucoBotDock";
 import {
-  Calendar,
   CalendarDays,
   Camera,
   BookOpen,
@@ -45,8 +45,6 @@ import {
   Droplets,
   UtensilsCrossed,
   Flame,
-  Sparkles,
-  ChevronRight,
   type LucideIcon,
 } from "lucide-react-native";
 import { format } from "date-fns";
@@ -120,31 +118,33 @@ function Tile({ icon: Icon, label, onPress }: TileProps) {
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({
-        width: "23.5%",
-        aspectRatio: 1,
+        width: "48%",
+        minHeight: 96,
         backgroundColor: colors.card,
-        borderRadius: radius.lg,
+        borderRadius: radius.xl,
         borderWidth: 1,
         borderColor: colors.border,
         alignItems: "center",
         justifyContent: "center",
-        gap: 6,
+        gap: 10,
+        paddingVertical: 14,
+        paddingHorizontal: 10,
         opacity: pressed ? 0.75 : 1,
       })}
     >
       <View style={{
-        width: 36, height: 36, borderRadius: 10,
+        width: 44, height: 44, borderRadius: 14,
         backgroundColor: colors.primaryLight,
         alignItems: "center", justifyContent: "center",
       }}>
-        <Icon size={18} color={colors.primary} strokeWidth={1.75} />
+        <Icon size={22} color={colors.primary} strokeWidth={1.9} />
       </View>
       <Text style={{
-        fontSize: 10,
-        fontWeight: "600",
-        color: colors.textSecondary,
+        fontSize: 13,
+        fontWeight: "800",
+        color: colors.textPrimary,
         textAlign: "center",
-      }} numberOfLines={1}>
+      }} numberOfLines={2}>
         {label}
       </Text>
     </Pressable>
@@ -191,7 +191,7 @@ export default function DashboardScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + 100, paddingHorizontal: 20, paddingTop: insets.top + 12 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 176, paddingHorizontal: 20, paddingTop: insets.top + 12 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
@@ -259,58 +259,19 @@ export default function DashboardScreen() {
           <MacroRow label="Sugar"    value={totalSugar}    max={maxSugar}    unit="g" warn />
         </View>
 
-        {/* ─── Launcher grid (8 tiles, 4×2) ─── */}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: "2%" as any, rowGap: 10, marginBottom: 16 }}>
+        {/* ─── Launcher grid ─── */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 12, marginBottom: 18 }}>
           <Tile icon={CalendarDays}   label="Planner"    onPress={() => router.push("/(tabs)/planner")} />
           <Tile icon={Camera}         label="Scan"       onPress={() => router.push("/(tabs)/scan")} />
           <Tile icon={BookOpen}       label="Guide"      onPress={() => router.push("/(tabs)/reminders")} />
-          <Tile icon={LineChart}      label="Glucose"    onPress={() => router.push("/glucose" as any)} />
+          <Tile icon={LineChart}      label="Glucose"    onPress={() => router.push("/(tabs)/glucose")} />
           <Tile icon={FileText}       label="Diary"      onPress={() => router.push("/food-log" as any)} />
           <Tile icon={TrendingUp}     label="Progress"   onPress={() => router.push("/progress" as any)} />
           <Tile icon={Droplets}       label={`Water · ${waterCups}/8`} onPress={() => router.push("/water" as any)} />
           <Tile icon={UtensilsCrossed} label="Foods"     onPress={() => router.push("/foods" as any)} />
         </View>
-
-        {/* ─── GlucoBot card ─── */}
-        <Pressable
-          onPress={() => router.push("/coach" as any)}
-          style={({ pressed }) => ({
-            flexDirection: "row", alignItems: "center", gap: 12,
-            backgroundColor: colors.card,
-            borderRadius: radius.lg,
-            borderWidth: 1, borderColor: colors.border,
-            padding: 14,
-            opacity: pressed ? 0.85 : 1,
-          })}
-        >
-          <View style={{
-            width: 42, height: 42, borderRadius: 21,
-            backgroundColor: colors.primary,
-            alignItems: "center", justifyContent: "center",
-            shadowColor: colors.primary,
-            shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 0.5,
-            shadowRadius: 10,
-          }}>
-            <Sparkles size={18} color={colors.background} strokeWidth={2.25} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Text style={{ fontSize: 14, fontWeight: "800", color: colors.textPrimary }}>GlucoBot</Text>
-              <View style={{
-                backgroundColor: colors.primaryLight,
-                borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1,
-              }}>
-                <Text style={{ fontSize: 9, fontWeight: "700", color: colors.primary, letterSpacing: 0.5 }}>BETA</Text>
-              </View>
-            </View>
-            <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
-              Ask about foods, readings, tips
-            </Text>
-          </View>
-          <ChevronRight size={18} color={colors.textMuted} />
-        </Pressable>
       </ScrollView>
+      <GlucoBotDock bottomOffset={insets.bottom + 86} />
     </View>
   );
 }
