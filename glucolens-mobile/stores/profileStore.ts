@@ -21,6 +21,7 @@ export interface UserProfile {
   maxDailyCarbs: number;
   firstName?: string;
   lastName?: string;
+  email?: string;
   country?: string;
   countryCode?: string;
   countryFlag?: string;
@@ -31,6 +32,7 @@ export interface UserProfile {
   activityLevel: ActivityLevel;
   allergies?: string;
   medication?: string;
+  dietaryPrefs?: string;
   onboarding_complete?: number;
   onboardingComplete?: boolean;
 }

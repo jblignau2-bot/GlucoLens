@@ -158,8 +158,6 @@ function PhotoPanel({ onAnalyse, loading }: { onAnalyse: (base64: string) => voi
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.5,
       base64: true,
-      maxWidth: 1024,
-      maxHeight: 1024,
     });
     if (!result.canceled && result.assets[0].base64) {
       setPreview(result.assets[0].uri);
@@ -176,8 +174,6 @@ function PhotoPanel({ onAnalyse, loading }: { onAnalyse: (base64: string) => voi
     const result = await ImagePicker.launchCameraAsync({
       quality: 0.5,
       base64: true,
-      maxWidth: 1024,
-      maxHeight: 1024,
     });
     if (!result.canceled && result.assets[0].base64) {
       setPreview(result.assets[0].uri);

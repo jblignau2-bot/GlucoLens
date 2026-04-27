@@ -48,7 +48,7 @@ import { useRetailerStore } from "@/stores/retailerStore";
 import { retailerInfo } from "@/constants/tokens";
 import * as Haptics from "expo-haptics";
 import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Print from "expo-print";
 import * as ImagePicker from "expo-image-picker";
 
@@ -598,8 +598,6 @@ export default function ProfileScreen() {
               const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 quality: 0.7,
-                maxWidth: 512,
-                maxHeight: 512,
                 allowsEditing: true,
                 aspect: [1, 1],
               });

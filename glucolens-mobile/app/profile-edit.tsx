@@ -210,11 +210,11 @@ export default function ProfileEditScreen() {
 
           {/* ── Diabetes Type ────────────────────────────────────────────── */}
           <Text style={styles.sectionTitle}>Diabetes Type</Text>
-          <ChipRow options={DIABETES_OPTIONS} selected={diabetesType} onSelect={setDiabetesType} />
+          <ChipRow options={DIABETES_OPTIONS} selected={diabetesType} onSelect={(v) => setDiabetesType(v as typeof diabetesType)} />
 
           {/* ── Activity Level ───────────────────────────────────────────── */}
           <Text style={styles.sectionTitle}>Activity Level</Text>
-          <ChipRow options={ACTIVITY_OPTIONS} selected={activityLevel} onSelect={setActivityLevel} />
+          <ChipRow options={ACTIVITY_OPTIONS} selected={activityLevel} onSelect={(v) => setActivityLevel(v as typeof activityLevel)} />
 
           {/* ── Save button ──────────────────────────────────────────────── */}
           <TouchableOpacity

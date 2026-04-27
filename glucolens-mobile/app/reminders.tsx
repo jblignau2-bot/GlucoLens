@@ -430,13 +430,13 @@ export default function RemindersScreen() {
     onError: (e) => Alert.alert("Error", e.message),
   });
 
-  const handleDelete = (id: number, label: string) => {
+  const handleDelete = (id: number | string, label: string) => {
     Alert.alert("Delete reminder", `Remove "${label}"?`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
-        onPress: () => deleteMutation.mutate({ id }),
+        onPress: () => deleteMutation.mutate({ id: String(id) }),
       },
     ]);
   };

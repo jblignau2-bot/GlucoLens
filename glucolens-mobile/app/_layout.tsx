@@ -7,7 +7,6 @@ import Toast from "react-native-toast-message";
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { colors } from "@/constants/tokens";
 import { useEffect, useState } from "react";
-import { View, ActivityIndicator } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { SplashScreen } from "@/components/SplashScreen";
 
@@ -75,11 +74,11 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaProvider>
-            <StatusBar barStyle="light-content" />
+            <StatusBar style="light" />
             <Stack
               screenOptions={{
                 headerShown: false,
-                backgroundColor: colors.background,
+                contentStyle: { backgroundColor: colors.background },
               }}
             >
               <Stack.Screen name="(auth)" options={{}} />

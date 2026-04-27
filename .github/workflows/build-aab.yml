@@ -30,7 +30,15 @@ jobs:
 
       - name: Install dependencies
         working-directory: glucolens-mobile
-        run: npm ci
+        run: npm ci --legacy-peer-deps
+
+      - name: Typecheck mobile
+        working-directory: glucolens-mobile
+        run: npm run typecheck
+
+      - name: Lint mobile
+        working-directory: glucolens-mobile
+        run: npm run lint
 
       - name: Create production .env
         working-directory: glucolens-mobile

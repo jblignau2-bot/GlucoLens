@@ -29,7 +29,19 @@ export interface AnalysisResult {
   imageUri?: string;   // local file URI (before S3 upload)
   imageUrl?: string;   // S3 URL (after upload)
   itemBreakdown?: ItemBreakdown[];
-  nutrition: {
+  calories: number;
+  totalSugar: number;
+  totalCarbs: number;
+  glycemicIndex: number;
+  glycemicLoad: number;
+  protein: number;
+  fat: number;
+  fiber: number;
+  ratingType1: "safe" | "moderate" | "risky";
+  ratingType2: "safe" | "moderate" | "risky";
+  reasonType1: string;
+  reasonType2: string;
+  nutrition?: {
     calories: number;
     totalSugar_g: number;
     totalCarbs_g: number;
@@ -39,12 +51,12 @@ export interface AnalysisResult {
     fat_g: number;
     fiber_g: number;
   };
-  diabetesRating: {
+  diabetesRating?: {
     type1: { rating: "safe" | "moderate" | "risky"; reason: string };
     type2: { rating: "safe" | "moderate" | "risky"; reason: string };
   };
   whyRisky: string[];
-  healthierAlternatives: Array<{ name: string; benefit: string }>;
+  healthierAlternatives: ({ name: string; benefit: string } | string)[];
   foodsToAvoid: string[];
 }
 

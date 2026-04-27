@@ -60,7 +60,7 @@ import { format, startOfWeek, addDays, parseISO } from "date-fns";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
