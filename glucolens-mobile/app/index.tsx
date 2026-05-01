@@ -6,6 +6,8 @@ import { useProfileStore } from "@/stores/profileStore";
 import { colors } from "@/constants/tokens";
 
 export default function Index() {
+  const skipOnboarding =
+    __DEV__ && process.env.EXPO_PUBLIC_SKIP_ONBOARDING === "true";
   const setProfile = useProfileStore((s) => s.setProfile);
   const profile = useProfileStore((s) => s.profile);
   const hydrated = useProfileStore((s) => s.hydrated);
@@ -16,26 +18,29 @@ export default function Index() {
 
   // 1. Hydrate from AsyncStorage immediately (offline source of truth)
   useEffect(() => {
+    if (skipOnboarding) return;
     if (!hydrated) hydrate();
-  }, [hydrated, hydrate]);
+  }, [hydrated, hydrate, skipOnboarding]);
 
   // 2. Once hydrated, decide based on local data first
   useEffect(() => {
+    if (skipOnboarding) return;
     if (!hydrated) return;
     if (profile && (profile.onboardingComplete || profile.onboarding_complete === 1)) {
       setOnboarded(true);
       setChecked(true);
     }
     // If no local profile, fall through to backend check (or hard timeout)
-  }, [hydrated, profile]);
+  }, [hydrated, profile, skipOnboarding]);
 
   // 3. Background backend probe — but only if we don't already have a local profile
   const profileQuery = trpc.profile.get.useQuery(undefined, {
     retry: false,
-    enabled: hydrated && !profile,
+    enabled: !skipOnboarding && hydrated && !profile,
   });
 
   useEffect(() => {
+    if (skipOnboarding) return;
     if (!hydrated) return;
     if (profileQuery.data) {
       setProfile(profileQuery.data as any);
@@ -45,13 +50,16 @@ export default function Index() {
       // Backend is down — go to onboarding
       setChecked(true);
     }
-  }, [hydrated, profileQuery.data, profileQuery.isError, setProfile]);
+  }, [hydrated, profileQuery.data, profileQuery.isError, setProfile, skipOnboarding]);
 
   // 4. Hard timeout: if everything stalls for 2.5s, give up and route to onboarding.
   useEffect(() => {
+    if (skipOnboarding) return;
     const t = setTimeout(() => setChecked(true), 2500);
     return () => clearTimeout(t);
-  }, []);
+  }, [skipOnboarding]);
+
+  if (skipOnboarding) return <Redirect href="/(tabs)" />;
 
   if (!checked) {
     return (

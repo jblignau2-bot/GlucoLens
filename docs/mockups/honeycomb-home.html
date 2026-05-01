@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GlucoLens Honeycomb Home Mockup</title>
+  <style>
+    :root {
+      --bg: #060814;
+      --surface: #0e1228;
+      --surface-2: #151b38;
+      --accent: #a0b4ff;
+      --accent-2: #5fe3a8;
+      --ink: #fff;
+      --ink-2: #c8cde8;
+      --ink-3: #7f88b5;
+      --border: #252d55;
+      --warn: #ffc857;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #10121b;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+    }
+    .phone {
+      width: 390px;
+      height: 844px;
+      border-radius: 42px;
+      background: var(--bg);
+      padding: 22px 20px 24px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 28px 80px rgba(0,0,0,.45);
+    }
+    .brand { text-align: center; font-weight: 800; letter-spacing: .08em; font-size: 14px; margin-bottom: 18px; }
+    .brand span { color: var(--accent); }
+    .top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+    .date { color: var(--ink-3); font-size: 12px; margin-bottom: 6px; }
+    h1 { margin: 0; font-family: Georgia, serif; font-size: 30px; letter-spacing: 0; }
+    .avatar { width: 48px; height: 48px; border-radius: 999px; background: rgba(160,180,255,.15); border: 1px solid rgba(160,180,255,.25); display: grid; place-items: center; color: var(--accent); font-weight: 800; }
+    .summary { background: var(--surface); border: 1px solid var(--border); border-radius: 22px; padding: 18px; margin-bottom: 22px; }
+    .summary-title { color: var(--ink-3); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 14px; }
+    .macro { margin-bottom: 14px; }
+    .macro:last-child { margin-bottom: 0; }
+    .macro-row { display: flex; justify-content: space-between; color: var(--ink-2); font-size: 12px; margin-bottom: 7px; }
+    .macro-row b { color: var(--ink); font-size: 13px; }
+    .bar { height: 7px; border-radius: 999px; background: rgba(255,255,255,.06); overflow: hidden; }
+    .fill { height: 100%; border-radius: inherit; background: var(--accent); }
+    .fill.sugar { background: var(--warn); }
+    .honey {
+      position: relative;
+      height: 342px;
+      margin: 4px 0 22px;
+    }
+    .hex {
+      position: absolute;
+      width: 112px;
+      height: 126px;
+      clip-path: polygon(50% 0%, 95% 24%, 95% 76%, 50% 100%, 5% 76%, 5% 24%);
+      background: linear-gradient(180deg, var(--surface-2), var(--surface));
+      border: 1px solid var(--border);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 18px 12px;
+      box-shadow: inset 0 0 0 1px rgba(160,180,255,.08);
+    }
+    .hex.primary { background: linear-gradient(180deg, rgba(160,180,255,.34), rgba(160,180,255,.13)); }
+    .hex .ico { width: 38px; height: 38px; border-radius: 14px; display: grid; place-items: center; margin-bottom: 9px; background: rgba(160,180,255,.18); color: var(--accent); font-size: 22px; }
+    .hex .label { font-weight: 800; font-size: 13px; }
+    .hex .sub { color: var(--ink-3); font-size: 10px; margin-top: 3px; }
+    .h1 { left: 0; top: 0; }
+    .h2 { left: 119px; top: 0; }
+    .h3 { left: 238px; top: 0; }
+    .h4 { left: 59px; top: 101px; }
+    .h5 { left: 178px; top: 101px; }
+    .h6 { left: 0; top: 202px; }
+    .h7 { left: 119px; top: 202px; }
+    .h8 { left: 238px; top: 202px; }
+    .bot {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 92px;
+      min-height: 64px;
+      border-radius: 20px;
+      background: rgba(14,18,40,.96);
+      border: 1px solid rgba(160,180,255,.25);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      box-shadow: 0 0 26px rgba(160,180,255,.16);
+    }
+    .bot-mark { width: 40px; height: 40px; border-radius: 20px; background: var(--accent); color: var(--bg); display: grid; place-items: center; font-size: 22px; }
+    .bot b { display: block; font-size: 14px; }
+    .bot span { color: var(--ink-3); font-size: 12px; }
+    .tabs {
+      position: absolute;
+      left: 28px; right: 28px; bottom: 22px;
+      height: 54px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      color: var(--ink-3);
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <main class="phone">
+    <div class="brand">Gluco<span>Lens</span></div>
+    <section class="top">
+      <div>
+        <div class="date">Monday, 27 April · 12-day streak</div>
+        <h1>Morning, Jay.</h1>
+      </div>
+      <div class="avatar">J</div>
+    </section>
+    <section class="summary">
+      <div class="summary-title">Today · 560 kcal left</div>
+      <div class="macro"><div class="macro-row"><b>Calories</b><span>59% · 1,240 / 2,100</span></div><div class="bar"><div class="fill" style="width:59%"></div></div></div>
+      <div class="macro"><div class="macro-row"><b>Carbs</b><span>53% · 95g / 180g</span></div><div class="bar"><div class="fill" style="width:53%"></div></div></div>
+      <div class="macro"><div class="macro-row"><b>Sugar</b><span>62% · 28g / 45g</span></div><div class="bar"><div class="fill sugar" style="width:62%"></div></div></div>
+    </section>
+    <section class="honey">
+      <div class="hex h1"><div><div class="ico">PL</div><div class="label">Planner</div><div class="sub">Meals</div></div></div>
+      <div class="hex h2 primary"><div><div class="ico">◎</div><div class="label">Scan</div><div class="sub">Food</div></div></div>
+      <div class="hex h3"><div><div class="ico">GD</div><div class="label">Guide</div><div class="sub">Learn</div></div></div>
+      <div class="hex h4"><div><div class="ico">↗</div><div class="label">Glucose</div><div class="sub">Trends</div></div></div>
+      <div class="hex h5"><div><div class="ico">≡</div><div class="label">Diary</div><div class="sub">Logs</div></div></div>
+      <div class="hex h6"><div><div class="ico">◆</div><div class="label">Progress</div><div class="sub">Body</div></div></div>
+      <div class="hex h7"><div><div class="ico">◌</div><div class="label">Water</div><div class="sub">4 / 8</div></div></div>
+      <div class="hex h8"><div><div class="ico">FD</div><div class="label">Foods</div><div class="sub">Lists</div></div></div>
+    </section>
+    <section class="bot">
+      <div class="bot-mark">✦</div>
+      <div><b>Ask GlucoBot</b><span>Food, glucose, meal plans, and quick advice</span></div>
+    </section>
+    <nav class="tabs"><span>Home</span><span>Planner</span><span>Scan</span><span>Guide</span><span>Profile</span></nav>
+  </main>
+</body>
+</html>

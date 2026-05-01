@@ -279,7 +279,7 @@ export default function ResultsScreen() {
         });
       }
     }
-  }, [result, params.logId, saved, logMealMutation.isPending]);
+  }, [result, params.logId, saved, logMealMutation]);
 
   const handleShare = async () => {
     if (!result) return;

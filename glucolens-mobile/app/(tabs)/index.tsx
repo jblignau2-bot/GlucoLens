@@ -1,24 +1,5 @@
 /**
- * Home (Dashboard) screen — matches glucolens-indigo-full.html mockup.
- *
- *  ┌─────────────────────────────────────┐
- *  │  Sunday, 19 April · 🔥 12-day streak│
- *  │  Morning, Jay.                 [J]  │
- *  ├─────────────────────────────────────┤
- *  │  Today · 560 kcal left              │
- *  │  Calories  59% · 1,240 / 2,100      │
- *  │  ▓▓▓▓▓▓░░░░ 860 kcal remaining      │
- *  │  Carbs     53% · 95g / 180g         │
- *  │  ▓▓▓▓▓░░░░░ 85g remaining           │
- *  │  Sugar     62% · 28g / 45g          │
- *  │  ▓▓▓▓▓▓░░░░ 17g remaining           │
- *  ├─────────────────────────────────────┤
- *  │  [Planner][Scan][Guide][Glucose]    │
- *  │  [Diary][Progress][Water][Foods]    │
- *  ├─────────────────────────────────────┤
- *  │  [G] GlucoBot · Beta           ›    │
- *  │      Ask about foods, readings, tips│
- *  └─────────────────────────────────────┘
+ * Home dashboard with summary metrics, a honeycomb launcher, and the GlucoBot dock.
  */
 
 import {
@@ -31,6 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useState, useCallback } from "react";
+import Svg, { Polygon } from "react-native-svg";
 import { trpc } from "@/lib/trpc";
 import { useProfileStore } from "@/stores/profileStore";
 import { colors, radius, fonts } from "@/constants/tokens";
@@ -49,7 +31,7 @@ import {
 } from "lucide-react-native";
 import { format } from "date-fns";
 
-// ─── Greeting helpers ──────────────────────────────────────────────────────
+// Greeting helpers
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -58,7 +40,7 @@ function getGreeting(): string {
   return "Evening";
 }
 
-// ─── Macro row ─────────────────────────────────────────────────────────────
+// Macro row
 
 interface MacroRowProps {
   label: string;
@@ -80,7 +62,7 @@ function MacroRow({ label, value, max, unit, warn = false }: MacroRowProps) {
         <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textSecondary }}>
           {pct}%
           <Text style={{ fontWeight: "400", color: colors.textMuted }}>
-            {"  · "}
+            {"  - "}
             {value.toLocaleString()} / {max.toLocaleString()}{unit === "kcal" ? "" : unit}
           </Text>
         </Text>
@@ -105,7 +87,7 @@ function MacroRow({ label, value, max, unit, warn = false }: MacroRowProps) {
   );
 }
 
-// ─── Launcher tile ─────────────────────────────────────────────────────────
+// Launcher tile
 
 interface TileProps {
   icon: LucideIcon;
@@ -118,40 +100,49 @@ function Tile({ icon: Icon, label, onPress }: TileProps) {
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({
-        width: "48%",
-        minHeight: 96,
-        backgroundColor: colors.card,
-        borderRadius: radius.xl,
-        borderWidth: 1,
-        borderColor: colors.border,
+        width: "31.5%",
+        height: 112,
         alignItems: "center",
         justifyContent: "center",
-        gap: 10,
-        paddingVertical: 14,
-        paddingHorizontal: 10,
         opacity: pressed ? 0.75 : 1,
       })}
     >
-      <View style={{
-        width: 44, height: 44, borderRadius: 14,
-        backgroundColor: colors.primaryLight,
-        alignItems: "center", justifyContent: "center",
-      }}>
-        <Icon size={22} color={colors.primary} strokeWidth={1.9} />
+      <Svg
+        viewBox="0 0 100 112"
+        preserveAspectRatio="none"
+        style={{ position: "absolute", width: "100%", height: "100%" }}
+      >
+        <Polygon
+          points="50,2 94,27 94,85 50,110 6,85 6,27"
+          fill={colors.card}
+          stroke={colors.border}
+          strokeWidth="1.4"
+        />
+      </Svg>
+      <View style={{ alignItems: "center", justifyContent: "center", paddingHorizontal: 10 }}>
+        <View style={{
+          width: 38, height: 38, borderRadius: 13,
+          backgroundColor: colors.primaryLight,
+          alignItems: "center", justifyContent: "center",
+          marginBottom: 6,
+        }}>
+          <Icon size={20} color={colors.primary} strokeWidth={1.9} />
+        </View>
+        <Text style={{
+          fontSize: 12,
+          fontWeight: "800",
+          color: colors.textPrimary,
+          textAlign: "center",
+          lineHeight: 14,
+        }} numberOfLines={2}>
+          {label}
+        </Text>
       </View>
-      <Text style={{
-        fontSize: 13,
-        fontWeight: "800",
-        color: colors.textPrimary,
-        textAlign: "center",
-      }} numberOfLines={2}>
-        {label}
-      </Text>
     </Pressable>
   );
 }
 
-// ─── Main screen ───────────────────────────────────────────────────────────
+// Main screen
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
@@ -162,9 +153,9 @@ export default function DashboardScreen() {
   const [streakDays] = useState(12); // local-only placeholder
 
   // Try the API, but fall back to local / defaults if the backend is dead.
-  const { data: todayLogs, refetch, isLoading } = trpc.food.list.useQuery(
+  const { data: todayLogs, refetch } = trpc.food.list.useQuery(
     { from: new Date().setHours(0, 0, 0, 0).toString(), to: new Date().toISOString(), limit: 20 },
-    { retry: false, enabled: false }, // keep disabled for now — backend offline
+    { retry: false, enabled: false }, // keep disabled for now — backend URL is offline
   );
 
   const onRefresh = useCallback(async () => {
@@ -197,7 +188,7 @@ export default function DashboardScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Brand header (small, centered) ─── */}
+        {/* Brand header */}
         <Text style={{
           fontSize: 15, fontWeight: "700", letterSpacing: 0.6,
           textAlign: "center", color: colors.textPrimary, marginBottom: 16,
@@ -205,7 +196,7 @@ export default function DashboardScreen() {
           Gluco<Text style={{ color: colors.primary }}>Lens</Text>
         </Text>
 
-        {/* ─── Greeting + streak + avatar ─── */}
+        {/* Greeting, streak, and avatar */}
         <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
@@ -237,7 +228,7 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* ─── Macro panel ─── */}
+        {/* Macro panel */}
         <View style={{
           backgroundColor: colors.card,
           borderRadius: radius.xl,
@@ -259,16 +250,22 @@ export default function DashboardScreen() {
           <MacroRow label="Sugar"    value={totalSugar}    max={maxSugar}    unit="g" warn />
         </View>
 
-        {/* ─── Launcher grid ─── */}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 12, marginBottom: 18 }}>
-          <Tile icon={CalendarDays}   label="Planner"    onPress={() => router.push("/(tabs)/planner")} />
-          <Tile icon={Camera}         label="Scan"       onPress={() => router.push("/(tabs)/scan")} />
-          <Tile icon={BookOpen}       label="Guide"      onPress={() => router.push("/(tabs)/reminders")} />
-          <Tile icon={LineChart}      label="Glucose"    onPress={() => router.push("/(tabs)/glucose")} />
-          <Tile icon={FileText}       label="Diary"      onPress={() => router.push("/food-log" as any)} />
-          <Tile icon={TrendingUp}     label="Progress"   onPress={() => router.push("/progress" as any)} />
-          <Tile icon={Droplets}       label={`Water · ${waterCups}/8`} onPress={() => router.push("/water" as any)} />
-          <Tile icon={UtensilsCrossed} label="Foods"     onPress={() => router.push("/foods" as any)} />
+        {/* Honeycomb launcher */}
+        <View style={{ marginBottom: 18 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <Tile icon={CalendarDays} label="Planner" onPress={() => router.push("/(tabs)/planner")} />
+            <Tile icon={Camera} label="Scan" onPress={() => router.push("/(tabs)/scan")} />
+            <Tile icon={BookOpen} label="Guide" onPress={() => router.push("/(tabs)/reminders")} />
+          </View>
+          <View style={{ flexDirection: "row", justifyContent: "center", gap: 8, marginTop: -28 }}>
+            <Tile icon={LineChart} label="Glucose" onPress={() => router.push("/(tabs)/glucose")} />
+            <Tile icon={FileText} label="Diary" onPress={() => router.push("/food-log" as any)} />
+          </View>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: -28 }}>
+            <Tile icon={TrendingUp} label="Progress" onPress={() => router.push("/progress" as any)} />
+            <Tile icon={Droplets} label={`Water ${waterCups}/8`} onPress={() => router.push("/water" as any)} />
+            <Tile icon={UtensilsCrossed} label="Foods" onPress={() => router.push("/foods" as any)} />
+          </View>
         </View>
       </ScrollView>
       <GlucoBotDock bottomOffset={insets.bottom + 86} />

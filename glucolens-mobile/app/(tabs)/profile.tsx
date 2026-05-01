@@ -15,11 +15,9 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  Switch,
   Alert,
   ActivityIndicator,
   Modal,
-  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -27,18 +25,16 @@ import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { useProfileStore } from "@/stores/profileStore";
 import { supabase } from "@/lib/supabase";
-import { colors, radius, shadow } from "@/constants/tokens";
+import { colors, radius } from "@/constants/tokens";
 import {
   User,
   Activity,
-  Bell,
   Download,
   LogOut,
   ChevronRight,
   CheckCircle2,
   FileText,
   Edit2,
-  Save,
   X,
   Pill,
   AlertTriangle,
@@ -459,7 +455,6 @@ export default function ProfileScreen() {
         await FileSystem.writeAsStringAsync(path, csvText);
       } catch {
         // Fallback for SDK 54+ where writeAsStringAsync is removed
-        const { StorageAccessFramework } = FileSystem;
         // Write via base64 encoding as fallback
         const base64 = btoa(unescape(encodeURIComponent(csvText)));
         await FileSystem.writeAsStringAsync(path, base64, { encoding: FileSystem.EncodingType.Base64 });

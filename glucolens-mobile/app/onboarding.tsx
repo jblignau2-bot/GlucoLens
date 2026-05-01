@@ -3,13 +3,13 @@ import {
   StatusBar, KeyboardAvoidingView, Platform, Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { Redirect, useRouter } from "expo-router";
+import { useState, useMemo, useRef } from "react";
 import Toast from "react-native-toast-message";
 import { CameraLensLogo } from "@/components/ui/GlucoLensLogo";
 import { trpc } from "@/lib/trpc";
 import { useProfileStore } from "@/stores/profileStore";
-import { colors, radius, spacing } from "@/constants/tokens";
+import { colors, radius } from "@/constants/tokens";
 import {
   User, Globe, HeartPulse, Target, CheckCircle, Syringe, Activity,
   HelpCircle, ShieldCheck, Flame, Droplets, Wheat, ChevronRight, ChevronLeft,
@@ -193,6 +193,8 @@ function PillOption({ selected, label, onPress }: { selected: boolean; label: st
 }
 
 export default function Onboarding() {
+  const skipOnboarding =
+    __DEV__ && process.env.EXPO_PUBLIC_SKIP_ONBOARDING === "true";
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -200,7 +202,7 @@ export default function Onboarding() {
   const [showCountries, setShowCountries] = useState(false);
   const [calculatedGoals, setCalculatedGoals] = useState<GoalResult | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
-  const [checkingProfile, setCheckingProfile] = useState(false);
+  const [checkingProfile] = useState(false);
   const [acceptedDisclaimer, setAcceptedDisclaimer] = useState(false);
   const [disclaimerAcceptedAt, setDisclaimerAcceptedAt] = useState<string | null>(null);
 
@@ -374,6 +376,10 @@ export default function Onboarding() {
   );
 
   const currentStep = STEPS[step - 1];
+
+  if (skipOnboarding) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   return (
     <KeyboardAvoidingView

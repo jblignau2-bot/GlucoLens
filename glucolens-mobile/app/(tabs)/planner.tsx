@@ -284,7 +284,7 @@ function GeneratingOverlay({ visible }: { visible: boolean }) {
         progressAnim.stopAnimation();
       };
     }
-  }, [visible]);
+  }, [visible, progressAnim]);
 
   if (!visible) return null;
 
@@ -393,7 +393,7 @@ function PulsingDot({ delay }: { delay: number }) {
     );
     loop.start();
     return () => loop.stop();
-  }, []);
+  }, [anim, delay]);
 
   return (
     <RNAnimated.View
@@ -900,7 +900,11 @@ function ShoppingListTab({
   const toggle = (name: string) => {
     setChecked((prev) => {
       const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
       return next;
     });
     Haptics.selectionAsync();
@@ -1243,8 +1247,6 @@ function MealReminderToggle() {
   const { data: reminders, refetch } = trpc.reminders.list.useQuery();
   const addMutation = trpc.reminders.add.useMutation({ onSuccess: () => refetch() });
   const toggleMutation = trpc.reminders.toggle.useMutation({ onSuccess: () => refetch() });
-  const deleteMutation = trpc.reminders.delete.useMutation({ onSuccess: () => refetch() });
-
   const [showModal, setShowModal] = useState(false);
   const [reminderTime, setReminderTime] = useState("12:00");
   const [reminderLabel, setReminderLabel] = useState("Meal Reminder");

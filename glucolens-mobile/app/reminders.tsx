@@ -31,10 +31,9 @@ import {
   Trash2,
   Bell,
   Droplets,
-  Sunrise,
   UtensilsCrossed,
-  Moon,
 } from "lucide-react-native";
+import * as Haptics from "expo-haptics";
 // expo-notifications remote push is not supported in Expo Go (SDK 53+).
 // Stub it so the reminders UI works; swap for real impl in a dev build.
 const Notifications = {
@@ -43,7 +42,6 @@ const Notifications = {
   cancelScheduledNotificationAsync: async (_: string) => {},
   setNotificationHandler: (_: any) => {},
 };
-import * as Haptics from "expo-haptics";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -73,21 +71,6 @@ async function scheduleReminder(label: string, time: string) {
       repeats: true,
     },
   });
-}
-
-function getReminderIcon(type: string) {
-  switch (type) {
-    case "breakfast":
-      return <Sunrise size={14} color={colors.primary} />;
-    case "meal":
-      return <UtensilsCrossed size={14} color={colors.primary} />;
-    case "water":
-      return <Droplets size={14} color={colors.primary} />;
-    case "evening":
-      return <Moon size={14} color={colors.primary} />;
-    default:
-      return <Bell size={14} color={colors.primary} />;
-  }
 }
 
 // ─── Time picker (simple wheel-free HH:MM input) ─────────────────────────────

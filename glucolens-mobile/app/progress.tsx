@@ -26,7 +26,6 @@ import {
   Camera,
   TrendingUp,
   TrendingDown,
-  Minus,
   Ruler,
   Calendar,
   Sparkles,
@@ -42,14 +41,6 @@ interface Measurements {
   hips: string;
   thighs: string;
   calves: string;
-}
-
-interface WeekData {
-  weekLabel: string;
-  weekStart: string;
-  measurements: Measurements;
-  photos: { front: boolean; side: boolean; back: boolean };
-  saved: boolean;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

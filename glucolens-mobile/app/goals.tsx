@@ -25,8 +25,6 @@ import {
   ArrowLeft,
   Camera,
   User,
-  ChevronRight,
-  Trash2,
   Trophy,
   Target,
 } from "lucide-react-native";

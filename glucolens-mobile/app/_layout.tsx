@@ -16,11 +16,15 @@ const queryClient = new QueryClient({
   },
 });
 const trpcClient = createTRPCClient();
+const skipRemoteBoot =
+  __DEV__ && process.env.EXPO_PUBLIC_SKIP_ONBOARDING === "true";
 
 // Warm up the Railway backend the instant the JS bundle loads.
 // Railway sleeps after inactivity — this ping wakes it up before
 // the user finishes the auth splash, so API calls feel instant.
-fetch(`${process.env.EXPO_PUBLIC_API_URL}/health`).catch(() => {});
+if (!skipRemoteBoot) {
+  fetch(`${process.env.EXPO_PUBLIC_API_URL}/health`).catch(() => {});
+}
 
 /**
  * Ensure a Supabase session exists.
@@ -54,10 +58,11 @@ export default function RootLayout() {
   // Block children from rendering until we have a confirmed Supabase
   // session. Without this gate, tRPC queries fire immediately on mount
   // with no Authorization header and get "not authenticated" errors.
-  const [authReady, setAuthReady] = useState(false);
+  const [authReady, setAuthReady] = useState(skipRemoteBoot);
   const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
+    if (skipRemoteBoot) return;
     ensureSession().finally(() => setAuthReady(true));
   }, []);
 
@@ -81,7 +86,6 @@ export default function RootLayout() {
                 contentStyle: { backgroundColor: colors.background },
               }}
             >
-              <Stack.Screen name="(auth)" options={{}} />
               <Stack.Screen name="onboarding" options={{}} />
               <Stack.Screen name="(tabs)" options={{}} />
               <Stack.Screen

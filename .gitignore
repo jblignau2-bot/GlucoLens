@@ -13,3 +13,5 @@ ios/
 *.keystore
 *.jks
 *.log
+test-screenshots/
+.codex-logs/
