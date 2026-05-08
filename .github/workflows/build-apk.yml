@@ -3,7 +3,9 @@ name: Build Android APK
 on:
   workflow_dispatch: # Manual trigger from GitHub UI
   push:
-    branches: [main]
+    branches:
+      - main
+      - "claude/**" # build APKs for redesign branches too
 
 jobs:
   build:
