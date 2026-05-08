@@ -48,7 +48,14 @@ export default function WeeklyReview() {
   const router = useRouter();
   const profile = useProfileStore((s) => s.profile);
 
-  const sevenDaysAgo = useMemo(() => Date.now() - 7 * 24 * 60 * 60 * 1000, []);
+  // The food-log API filters with .gte("logged_at", from) against a Postgres
+  // timestamp column, so `from` must be an ISO string. Passing stringified
+  // epoch ms (which Postgres can't cast) silently returns nothing.
+  const sevenDaysAgoIso = useMemo(
+    () => new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    [],
+  );
+  const sevenDaysAgoMs = useMemo(() => Date.now() - 7 * 24 * 60 * 60 * 1000, []);
 
   const glucoseQuery = trpc.glucose.list.useQuery(
     { limit: 200 },
@@ -56,7 +63,7 @@ export default function WeeklyReview() {
   );
 
   const mealsQuery = trpc.food.list.useQuery(
-    { from: sevenDaysAgo.toString(), to: new Date().toISOString(), limit: 200 },
+    { from: sevenDaysAgoIso, to: new Date().toISOString(), limit: 200 },
     { retry: false, enabled: !!API_URL },
   );
 
@@ -72,7 +79,7 @@ export default function WeeklyReview() {
   const tir = useMemo(() => timeInRange(readings, 7), [readings]);
   const a1c = useMemo(() => estimateA1c(readings, 90), [readings]);
 
-  const weekReadings = readings.filter((r) => r.takenAt >= sevenDaysAgo);
+  const weekReadings = readings.filter((r) => r.takenAt >= sevenDaysAgoMs);
   const high = weekReadings.length > 0 ? Math.max(...weekReadings.map((r) => r.value_mgdl)) : null;
   const low = weekReadings.length > 0 ? Math.min(...weekReadings.map((r) => r.value_mgdl)) : null;
 

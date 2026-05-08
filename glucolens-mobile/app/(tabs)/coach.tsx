@@ -8,7 +8,6 @@
 import { View } from "react-native";
 import { CoachChat } from "@/components/coach/CoachChat";
 import { TAB_BAR_HEIGHT } from "@/constants/tokens";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const TOPIC_PROMPTS = [
   "What should I eat next?",
@@ -20,17 +19,11 @@ const TOPIC_PROMPTS = [
 ];
 
 export default function CoachTab() {
-  const insets = useSafeAreaInsets();
-
+  // Reserve room for the floating tab bar above the chat input.
+  // CoachChat already pads its own input by `insets.bottom + 12`, so we add
+  // exactly TAB_BAR_HEIGHT here to avoid double-padding the safe area.
   return (
-    <View
-      style={{
-        flex: 1,
-        // Reserve room for the floating tab bar so the input doesn't sit
-        // underneath it.
-        paddingBottom: TAB_BAR_HEIGHT + insets.bottom - 12,
-      }}
-    >
+    <View style={{ flex: 1, paddingBottom: TAB_BAR_HEIGHT }}>
       <CoachChat
         applyTopInset
         subtitle="Daily food, glucose, and habit coach"

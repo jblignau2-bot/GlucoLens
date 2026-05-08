@@ -588,21 +588,31 @@ export default function GlucoseScreen() {
     }
   }, [incomingPendingCheckId, pendingChecks]);
 
+  // We capture the entered glucose value at submission time, because the API
+  // returns only `{ id }` from glucose.add — `valueMmol` is not in the
+  // response. Without this the badge would be computed against 0 mg/dL and
+  // every meal would silently be graded green.
+  const lastSubmittedMmol = useRef<number | null>(null);
+
   const addGlucoseMutation = trpc.glucose.add.useMutation({
-    onSuccess: async (created) => {
+    onSuccess: async () => {
       refetchGlucose();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // If a pending check is awaiting a reading, resolve it with a stoplight.
+
+      // Read the current store state at call-time so a long session doesn't
+      // resolve against a render-time stale snapshot of `pendingChecks`.
+      const currentChecks = usePendingChecksStore.getState().checks;
       const target =
         incomingPendingCheckId
-          ? pendingChecks.find((c) => c.id === incomingPendingCheckId && !c.resolved)
-          : pendingChecks.find((c) => !c.resolved && c.followUpAt <= Date.now());
-      if (target) {
-        const value_mgdl = mgFromMmol((created as { valueMmol?: number } | undefined)?.valueMmol ?? 0);
+          ? currentChecks.find((c) => c.id === incomingPendingCheckId && !c.resolved)
+          : currentChecks.find((c) => !c.resolved && c.followUpAt <= Date.now());
+
+      const submittedMmol = lastSubmittedMmol.current;
+      if (target && submittedMmol != null) {
+        const value_mgdl = mgFromMmol(submittedMmol);
         const badge = postMealStoplight(value_mgdl);
         await resolvePending(target.id, value_mgdl, badge);
         if (target.notificationId) await cancelFollowUp(target.notificationId);
-        // Auto-clean the resolved check after we've shown the result toast.
         Toast.show({
           type: badge === "green" ? "success" : badge === "amber" ? "info" : "error",
           text1:
@@ -615,8 +625,12 @@ export default function GlucoseScreen() {
         });
         setTimeout(() => removePending(target.id).catch(() => {}), 60_000);
       }
+      lastSubmittedMmol.current = null;
     },
-    onError: (e) => Alert.alert("Error", e.message),
+    onError: (e) => {
+      lastSubmittedMmol.current = null;
+      Alert.alert("Error", e.message);
+    },
   });
 
   const addWeightMutation = trpc.weight.add.useMutation({
@@ -656,7 +670,10 @@ export default function GlucoseScreen() {
       <AddGlucoseModal
         visible={addGlucoseOpen}
         onClose={() => setAddGlucoseOpen(false)}
-        onSave={(d) => addGlucoseMutation.mutate(d)}
+        onSave={(d) => {
+          lastSubmittedMmol.current = d.valueMmol;
+          addGlucoseMutation.mutate(d);
+        }}
       />
       <AddWeightModal
         visible={addWeightOpen}

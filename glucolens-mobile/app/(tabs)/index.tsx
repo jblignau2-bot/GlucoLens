@@ -270,14 +270,28 @@ export default function HomeScreen() {
 
   const queryEnabled = profileHydrated && !!profile && !!API_URL;
 
-  // Today's meals (range query)
-  const startOfDay = useMemo(() => {
+  // Today's meals (range query). The API filters with .gte("logged_at", from)
+  // against a Postgres timestamp column, so `from` must be an ISO string —
+  // a stringified epoch ms is interpreted as a year and silently returns
+  // nothing.
+  //
+  // We re-derive `today` whenever the screen regains focus so a session that
+  // crosses midnight rolls over correctly without a manual reload.
+  const [todayBoundary, setTodayBoundary] = useState(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
-    return d.getTime().toString();
-  }, []);
+    return d.toISOString();
+  });
+  useFocusEffect(
+    useCallback(() => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      const iso = d.toISOString();
+      setTodayBoundary((prev) => (prev === iso ? prev : iso));
+    }, []),
+  );
   const todayMealsQuery = trpc.food.list.useQuery(
-    { from: startOfDay, to: new Date().toISOString(), limit: 20 },
+    { from: todayBoundary, to: new Date().toISOString(), limit: 20 },
     { retry: false, enabled: queryEnabled },
   );
 

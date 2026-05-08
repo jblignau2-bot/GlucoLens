@@ -149,13 +149,23 @@ export function lensScore(input: LensScoreInput): LensScore {
   }
 
   // 2) Carb adherence — full marks if at-or-under target, soft penalty for overshoot
-  if (input.carbsToday_g !== undefined && input.carbMaxToday_g && input.carbMaxToday_g > 0) {
+  //
+  // We deliberately skip this signal until at least one carb has been logged
+  // today. Awarding 100 to a user who hasn't eaten yet inflates the morning
+  // Lens Score and triggers misplaced "three for three" mentor messages.
+  if (
+    input.carbsToday_g !== undefined &&
+    input.carbsToday_g > 0 &&
+    input.carbMaxToday_g &&
+    input.carbMaxToday_g > 0
+  ) {
     const ratio = input.carbsToday_g / input.carbMaxToday_g;
     let v: number;
-    if (ratio <= 1) v = 100 * (1 - Math.max(0, 1 - ratio) * 0); // 100 if at-or-under
-    else            v = clamp(100 - (ratio - 1) * 120, 0, 100); // -1.2pt per 1% overshoot
-    // Penalise being too low too — eating nothing is not winning the day.
-    if (ratio < 0.25) v = clamp(v - 10, 0, 100);
+    if (ratio <= 1) {
+      v = 100; // at-or-under target = full marks
+    } else {
+      v = clamp(100 - (ratio - 1) * 120, 0, 100); // -1.2 pt per 1% overshoot
+    }
     components.carbs = Math.round(v);
     weighted.push({ weight: 0.3, value: v });
   }
