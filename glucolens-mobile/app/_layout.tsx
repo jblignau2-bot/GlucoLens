@@ -20,11 +20,20 @@ const trpcClient = createTRPCClient();
 const skipRemoteBoot =
   __DEV__ && process.env.EXPO_PUBLIC_SKIP_ONBOARDING === "true";
 
-// Warm up the Railway backend the instant the JS bundle loads.
-// Railway sleeps after inactivity — this ping wakes it up before
-// the user finishes the auth splash, so API calls feel instant.
+// Warm up the backend the instant the JS bundle loads. The host sleeps after
+// inactivity — this ping wakes it before the user finishes the auth splash.
+// Wrapped in a try/catch because some platforms (notably Hermes when fed an
+// "undefined/health" URL) throw synchronously on `fetch(...)`, and a bare
+// `.catch(() => {})` only handles promise rejections, not sync throws.
 if (!skipRemoteBoot) {
-  fetch(`${process.env.EXPO_PUBLIC_API_URL}/health`).catch(() => {});
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (apiUrl) {
+    try {
+      fetch(`${apiUrl}/health`).catch(() => {});
+    } catch {
+      // best-effort warm-up
+    }
+  }
 }
 
 /**
