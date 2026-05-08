@@ -3,921 +3,1114 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>GlucoLens — warm-clinical redesign 2026</title>
+<title>GlucoLens — editorial redesign 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 :root {
-  /* Warm Clinical tokens — mirrored from constants/tokens.ts */
-  --bg: #FFFBF7;
-  --card: #FDF5EC;
-  --card-alt: #F8EBDC;
-  --border: #F2DFCB;
-  --border-light: #E2D5C7;
-  --ink: #2A1F18;
-  --ink-2: #5A4638;
-  --ink-3: #8E7768;
-  --ink-4: #C4B3A4;
-  --coral: #F26B5B;
-  --coral-light: #FCE3DD;
-  --amber: #F4A261;
-  --amber-bg: #FDEBD7;
-  --safe: #3FB68D;
-  --safe-bg: #D8EFE5;
-  --moderate: #E0A93C;
-  --moderate-bg: #F8E8C2;
-  --risky: #D9534F;
-  --risky-bg: #F8D7D5;
-  --serif: 'Fraunces', Georgia, serif;
-  --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  /* Editorial wellness palette — deeper, more confident than v1 */
+  --paper:        #FAF7F1;
+  --paper-2:      #F4EFE5;
+  --paper-3:      #ECE4D5;
+  --ink:          #1B1410;
+  --ink-2:        #5C4E42;
+  --ink-3:        #9C8E81;
+  --ink-4:        #C8BDAE;
+  --rule:         rgba(27,20,16,0.07);
+
+  --coral:        #DC4D3E;        /* deeper than v1 — confidence over brightness */
+  --coral-deep:   #B23A2E;
+  --coral-soft:   rgba(220,77,62,0.07);
+
+  --sage:         #5C8A6E;        /* in-range / safe */
+  --sage-soft:    rgba(92,138,110,0.10);
+  --amber:        #C7853F;
+  --amber-soft:   rgba(199,133,63,0.12);
+  --risky:        #A93D32;
+  --risky-soft:   rgba(169,61,50,0.10);
+
+  --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+  --sans:  'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
-* { box-sizing: border-box; }
+* { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
 html, body { margin: 0; }
 body {
   font-family: var(--sans);
-  background: linear-gradient(180deg, #ECE5DB 0%, #DCD0BE 100%);
+  background:
+    radial-gradient(1200px 800px at 70% 10%, rgba(220,77,62,0.06), transparent 60%),
+    radial-gradient(900px 700px at 10% 90%, rgba(92,138,110,0.05), transparent 60%),
+    linear-gradient(180deg, #E8E1D2 0%, #DCD3C0 100%);
+  background-attachment: fixed;
   color: var(--ink);
   min-height: 100vh;
-  padding: 40px 24px 80px;
-  -webkit-font-smoothing: antialiased;
+  padding: 56px 24px 96px;
+  letter-spacing: -0.005em;
 }
-.intro {
-  max-width: 780px; margin: 0 auto 36px; text-align: center;
+
+/* ── Page meta ─────────────────────────────────────── */
+.page-head {
+  max-width: 880px; margin: 0 auto 56px; text-align: center;
 }
-.intro h1 {
-  font-family: var(--serif); font-weight: 700;
-  font-size: 36px; margin: 0 0 8px; letter-spacing: -0.5px;
-  color: var(--ink);
+.kicker {
+  display: inline-block; font-size: 11px; letter-spacing: 2.4px;
+  text-transform: uppercase; font-weight: 700; color: var(--coral);
+  border: 1px solid rgba(220,77,62,0.25); padding: 7px 14px;
+  border-radius: 999px; margin-bottom: 22px;
 }
-.intro p {
-  margin: 0; color: var(--ink-2); font-size: 15px; line-height: 1.55;
+.page-head h1 {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 56px; line-height: 1.05; letter-spacing: -1.5px;
+  margin: 0 0 14px; color: var(--ink);
 }
-.tag {
-  display: inline-block; margin-bottom: 18px;
-  font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
-  font-weight: 700; color: var(--coral);
-  background: var(--coral-light); padding: 6px 12px; border-radius: 999px;
+.page-head h1 em { font-style: italic; font-weight: 400; color: var(--coral); }
+.page-head p {
+  margin: 0 auto; max-width: 620px;
+  color: var(--ink-2); font-size: 16px; line-height: 1.55; font-weight: 400;
 }
+
+/* ── Phone grid ────────────────────────────────────── */
 .row {
   display: flex; flex-wrap: wrap; justify-content: center;
-  gap: 28px; max-width: 1320px; margin: 0 auto;
+  gap: 36px 32px; max-width: 1340px; margin: 0 auto;
 }
+.col { display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .phone {
-  width: 360px; height: 740px;
-  background: var(--bg);
-  border-radius: 44px;
-  border: 1px solid rgba(0,0,0,0.08);
-  box-shadow:
-    0 1px 0 rgba(255,255,255,0.6) inset,
-    0 22px 40px -12px rgba(40,30,20,0.25),
-    0 50px 80px -32px rgba(40,30,20,0.18);
+  width: 380px; height: 780px;
+  background: var(--paper);
+  border-radius: 50px;
   position: relative; overflow: hidden;
-  display: flex; flex-direction: column;
+  box-shadow:
+    inset 0 0 0 0.5px rgba(255,255,255,0.6),
+    inset 0 0 0 1.5px rgba(0,0,0,0.06),
+    0 1px 0 rgba(255,255,255,0.4),
+    0 30px 50px -16px rgba(20,12,6,0.32),
+    0 80px 120px -40px rgba(20,12,6,0.22);
 }
-.phone::before {
-  content: ""; position: absolute;
-  top: 12px; left: 50%; transform: translateX(-50%);
-  width: 110px; height: 28px; border-radius: 18px;
-  background: #1A1106; z-index: 50;
+.phone::before { /* Dynamic Island */
+  content: ""; position: absolute; top: 14px; left: 50%;
+  transform: translateX(-50%);
+  width: 116px; height: 30px; border-radius: 18px;
+  background: #0E0907; z-index: 50;
 }
 .phone .screen {
-  flex: 1; padding: 50px 18px 0; overflow: hidden;
-  position: relative; display: flex; flex-direction: column;
+  position: absolute; inset: 0; padding: 56px 22px 0;
+  display: flex; flex-direction: column;
 }
-.phone-label {
-  text-align: center; font-size: 12px; letter-spacing: 0.5px;
-  font-weight: 700; color: var(--ink-2); margin-top: 14px;
+.phone-caption {
+  text-align: center; max-width: 380px;
 }
-.phone-label small {
-  display: block; font-weight: 500; font-size: 10px; color: var(--ink-3);
-  margin-top: 2px; text-transform: uppercase; letter-spacing: 1.2px;
+.phone-caption .t {
+  font-family: var(--serif); font-weight: 600; font-size: 17px;
+  color: var(--ink); letter-spacing: -0.3px;
+}
+.phone-caption .s {
+  font-size: 11px; color: var(--ink-3); margin-top: 2px;
+  letter-spacing: 0.5px;
 }
 
-/* status bar */
-.status {
+/* ── Status bar ────────────────────────────────────── */
+.statusbar {
   display: flex; justify-content: space-between; align-items: center;
-  font-size: 11px; font-weight: 700; color: var(--ink);
-  padding: 0 8px 8px;
+  font-size: 13px; font-weight: 600; color: var(--ink);
+  padding: 0 12px 14px; letter-spacing: -0.3px;
 }
-.status .right { display: flex; gap: 6px; align-items: center; }
-.status svg { fill: var(--ink); }
+.statusbar .icons { display: flex; gap: 5px; align-items: center; }
+.statusbar svg { stroke: var(--ink); fill: var(--ink); }
 
-/* generic card */
-.card {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 22px; padding: 16px;
-}
-.card.alt { background: var(--card-alt); }
-.card.coral-soft { background: var(--coral-light); border-color: rgba(242,107,91,0.2); }
-
+/* ── Generic helpers ───────────────────────────────── */
 .eyebrow {
+  font-family: var(--sans); font-size: 10px; font-weight: 700;
+  color: var(--ink-3); letter-spacing: 1.6px; text-transform: uppercase;
+}
+.serif { font-family: var(--serif); font-weight: 600; letter-spacing: -0.5px; }
+.scroll {
+  flex: 1; padding-bottom: 110px;
+  overflow-y: auto; display: flex; flex-direction: column; gap: 24px;
+}
+.scroll::-webkit-scrollbar { display: none; }
+
+/* ── Tab bar — minimal line/icon style ─────────────── */
+.tabbar {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 88px;
+  background: linear-gradient(180deg, rgba(250,247,241,0) 0%, rgba(250,247,241,0.96) 50%);
+  display: flex; align-items: flex-end; padding: 0 22px 24px;
+  pointer-events: none;
+}
+.tabbar-inner {
+  flex: 1; display: flex; align-items: center; justify-content: space-between;
+  pointer-events: auto;
+}
+.tab {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  font-size: 9.5px; font-weight: 700; color: var(--ink-3);
+  letter-spacing: 0.5px; text-transform: uppercase;
+  flex: 1; padding-top: 4px;
+}
+.tab.active { color: var(--coral); }
+.tab.active::after {
+  content: ""; width: 4px; height: 4px; border-radius: 50%;
+  background: var(--coral); margin-top: 2px;
+}
+.fab {
+  width: 60px; height: 60px; border-radius: 50%;
+  background: var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 4px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.06) inset,
+    0 8px 24px rgba(220,77,62,0.4),
+    0 2px 4px rgba(0,0,0,0.2);
+  position: relative;
+}
+.fab::after {
+  content: ""; position: absolute; inset: -8px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(220,77,62,0.30), transparent 65%);
+  z-index: -1;
+  animation: pulse 2.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { transform: scale(0.92); opacity: 0.5; }
+  50%     { transform: scale(1.10); opacity: 0.95; }
+}
+
+/* ── Meta line above hero ─────────────────────────── */
+.metaline {
+  display: flex; align-items: center; padding: 4px 4px 0;
+  font-size: 12px;
+}
+.metaline .date { color: var(--ink-3); flex: 1; font-weight: 500; }
+.streak {
+  display: flex; align-items: center; gap: 5px;
+  font-weight: 700; color: var(--amber); letter-spacing: 0.3px;
+}
+
+/* ── HERO LENS SCORE — editorial / no dial ─────────── */
+.hero {
+  background:
+    radial-gradient(circle at 70% 30%, rgba(220,77,62,0.10), transparent 55%),
+    var(--paper);
+  border-radius: 28px;
+  padding: 30px 24px 28px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.7) inset,
+    0 0 0 0.5px rgba(27,20,16,0.04),
+    0 24px 36px -22px rgba(27,20,16,0.16),
+    0 4px 12px -4px rgba(27,20,16,0.04);
+}
+.hero .top { display: flex; justify-content: space-between; align-items: baseline; }
+.hero .greet {
+  font-family: var(--serif); font-style: italic;
+  font-size: 15px; color: var(--ink-2); font-weight: 400;
+}
+.hero .band {
+  font-size: 10px; font-weight: 800; letter-spacing: 1.6px;
+  text-transform: uppercase; color: var(--sage);
+  display: flex; align-items: center; gap: 6px;
+}
+.hero .band::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--sage);
+  box-shadow: 0 0 0 4px rgba(92,138,110,0.18);
+}
+.hero .label {
+  font-family: var(--sans); font-size: 11px; font-weight: 700;
+  letter-spacing: 1.8px; text-transform: uppercase; color: var(--ink-3);
+  margin-top: 26px;
+}
+.hero .number {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 124px; line-height: 0.95;
+  letter-spacing: -6px; color: var(--ink); margin-top: 4px;
+  font-feature-settings: "lnum", "ss01";
+}
+.hero .number .of {
+  font-family: var(--sans); font-size: 14px; font-weight: 600;
+  color: var(--ink-3); letter-spacing: 0; margin-left: 8px;
+  vertical-align: 28px;
+}
+.components {
+  display: flex; gap: 4px; margin-top: 20px;
+  padding-top: 20px; border-top: 1px solid var(--rule);
+}
+.components .c { flex: 1; }
+.components .c .label-mini {
+  font-size: 9.5px; font-weight: 700; color: var(--ink-3);
+  letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 6px;
+}
+.components .c .bar {
+  height: 4px; border-radius: 2px;
+  background: var(--paper-3);
+  overflow: hidden; margin-bottom: 8px;
+}
+.components .c .bar > div { height: 100%; background: var(--coral); border-radius: 2px; }
+.components .c .v {
+  font-family: var(--serif); font-weight: 500; font-size: 21px;
+  color: var(--ink); letter-spacing: -0.5px;
+}
+
+/* ── Generic surface card (no border, soft shadow) ── */
+.card {
+  background: var(--paper);
+  border-radius: 24px;
+  padding: 22px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.6) inset,
+    0 18px 30px -22px rgba(27,20,16,0.13),
+    0 2px 6px -2px rgba(27,20,16,0.04);
+}
+
+/* ── Pending check ─────────────────────────────────── */
+.pending {
+  background: linear-gradient(135deg, var(--coral) 0%, var(--coral-deep) 100%);
+  color: white;
+  border-radius: 24px;
+  padding: 20px 22px;
+  box-shadow:
+    0 18px 36px -16px rgba(220,77,62,0.5),
+    0 4px 12px -4px rgba(220,77,62,0.25);
+  position: relative; overflow: hidden;
+}
+.pending::before {
+  content: ""; position: absolute; top: -40px; right: -40px;
+  width: 160px; height: 160px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.16), transparent 65%);
+}
+.pending .lab {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.6px;
+  text-transform: uppercase; opacity: 0.85;
+}
+.pending .t {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 22px; line-height: 1.15; letter-spacing: -0.5px;
+  margin-top: 8px; max-width: 86%;
+}
+.pending .row-bottom {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 18px; opacity: 0.92;
+}
+.pending .meta { font-size: 11px; font-weight: 500; }
+.pending .cta {
+  background: white; color: var(--coral-deep);
+  font-weight: 800; font-size: 11px; letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 8px 14px; border-radius: 999px;
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* ── Mentor card — editorial ───────────────────────── */
+.mentor .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.mentor .top .who {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 1.4px; text-transform: uppercase; color: var(--ink-3);
+}
+.mentor .top .who .av {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--ink); display: flex; align-items: center; justify-content: center;
+}
+.mentor .top .when { font-size: 11px; color: var(--ink-3); font-weight: 500; }
+.mentor .h {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 22px; line-height: 1.2; letter-spacing: -0.5px;
+  color: var(--ink);
+}
+.mentor .h em {
+  font-style: italic; font-weight: 400; color: var(--coral);
+}
+.mentor .b {
+  font-size: 13.5px; line-height: 1.55; color: var(--ink-2);
+  margin-top: 10px; font-weight: 400;
+}
+.mentor .arrow {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 16px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+  text-transform: uppercase; color: var(--coral);
+}
+
+/* ── Glucose health (A1c + TIR) ────────────────────── */
+.metrics .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.metrics .head .arrow { font-size: 11px; color: var(--ink-3); font-weight: 600; }
+.metrics .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.metrics .m {
+  padding: 0 4px;
+}
+.metrics .m + .m { border-left: 1px solid var(--rule); padding-left: 18px; }
+.metrics .m .l {
+  font-size: 10px; font-weight: 700; color: var(--ink-3);
+  letter-spacing: 1.6px; text-transform: uppercase; margin-bottom: 8px;
+}
+.metrics .m .v {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 44px; line-height: 1; letter-spacing: -1.5px;
+  color: var(--ink);
+}
+.metrics .m .v.coral { color: var(--coral); }
+.metrics .m .v.sage  { color: var(--sage); }
+.metrics .m .v small {
+  font-family: var(--sans); font-size: 16px; font-weight: 700;
+  color: var(--ink-3); letter-spacing: -0.5px; margin-left: 3px;
+  vertical-align: 11px;
+}
+.metrics .m .s { font-size: 11px; color: var(--ink-3); margin-top: 6px; }
+
+/* ── Meals strip — editorial table ─────────────────── */
+.meals .head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+.meals .head .all {
+  font-size: 11px; font-weight: 700; color: var(--coral);
+  letter-spacing: 0.5px;
+}
+.meal {
+  display: flex; align-items: center; gap: 0;
+  padding: 13px 0; border-top: 1px solid var(--rule);
+}
+.meal:first-of-type { border-top: 0; padding-top: 6px; }
+.meal .name {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 16px; color: var(--ink); letter-spacing: -0.3px;
+}
+.meal .meta { font-size: 11px; color: var(--ink-3); margin-top: 2px; font-weight: 500; }
+.meal .body { flex: 1; }
+.meal .badge {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 1.2px;
+  text-transform: uppercase;
+  padding: 5px 10px; border-radius: 999px;
+}
+.meal .badge.safe     { background: var(--sage-soft);  color: var(--sage); }
+.meal .badge.moderate { background: var(--amber-soft); color: var(--amber); }
+.meal .badge.risky    { background: var(--risky-soft); color: var(--risky); }
+
+/* ── Quick action row ──────────────────────────────── */
+.qa { display: flex; gap: 12px; }
+.qa .a {
+  flex: 1;
+  background: var(--paper);
+  border-radius: 22px;
+  padding: 16px 12px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.6) inset,
+    0 12px 22px -16px rgba(27,20,16,0.10);
+}
+.qa .a .ic { color: var(--coral); }
+.qa .a .l {
   font-size: 10px; font-weight: 700; color: var(--ink-3);
   letter-spacing: 1.4px; text-transform: uppercase;
 }
-.row-stack { display: flex; flex-direction: column; gap: 12px; }
-.flex { display: flex; }
-.between { justify-content: space-between; }
-.center { align-items: center; }
-.gap-8 { gap: 8px; }
-.gap-12 { gap: 12px; }
-.muted { color: var(--ink-3); font-size: 11px; }
-.serif { font-family: var(--serif); font-weight: 700; letter-spacing: -0.5px; }
+.qa .a .v {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 22px; line-height: 1; color: var(--ink); letter-spacing: -0.5px;
+}
+.qa .a .v small { font-family: var(--sans); font-size: 11px; font-weight: 600; color: var(--ink-3); margin-left: 1px; }
 
-/* tab bar */
-.tabbar {
-  position: absolute; left: 12px; right: 12px; bottom: 14px;
-  height: 56px; background: var(--card); border-radius: 28px;
-  border: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-around;
-  box-shadow: 0 6px 14px rgba(40,30,20,0.06);
-}
-.tabbar .tab {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  font-size: 10px; font-weight: 600; color: var(--ink-3); flex: 1;
-}
-.tabbar .tab.active { color: var(--coral); }
-.tabbar .fab {
-  width: 56px; height: 56px; border-radius: 50%; background: var(--coral);
-  display: flex; align-items: center; justify-content: center;
-  margin-top: -28px; flex: 0 0 56px;
-  box-shadow: 0 6px 18px rgba(242,107,91,0.5);
-}
-.tabbar .fab::before {
-  content: ""; position: absolute; width: 70px; height: 70px;
-  margin: -7px 0 0 -7px; border-radius: 50%;
-  background: rgba(242,107,91,0.22); z-index: -1;
-  animation: glow 2.4s ease-in-out infinite;
-}
-@keyframes glow {
-  0%,100% { transform: scale(0.94); opacity: 0.6; }
-  50% { transform: scale(1.08); opacity: 0.95; }
-}
-.scroll-area {
-  padding-bottom: 100px;
-  overflow-y: auto;
-  flex: 1;
-  display: flex; flex-direction: column; gap: 12px;
-}
-.scroll-area::-webkit-scrollbar { display: none; }
-
-/* lens score hero */
-.hero {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 26px; padding: 22px 16px 16px;
-  display: flex; flex-direction: column; align-items: center;
-  box-shadow: 0 6px 14px rgba(40,30,20,0.04);
-}
-.hero .greet { font-size: 11px; font-weight: 700; color: var(--ink-3); letter-spacing: 0.8px; text-transform: uppercase; }
-.hero .band { font-size: 13px; color: var(--ink-2); font-weight: 600; margin: 4px 0 10px; }
-.dial {
-  position: relative; width: 200px; height: 200px;
-  display: flex; align-items: center; justify-content: center;
-}
-.dial svg { position: absolute; inset: 0; }
-.dial .num {
-  font-family: var(--serif); font-weight: 700; font-size: 56px;
-  color: var(--ink); line-height: 1; letter-spacing: -1.5px;
-}
-.dial .of { font-size: 10px; font-weight: 700; color: var(--ink-3); letter-spacing: 1.4px; text-transform: uppercase; margin-top: 4px; }
-.components {
-  display: flex; gap: 16px; padding-top: 14px; margin-top: 14px;
-  border-top: 1px solid var(--border); width: 100%; justify-content: center;
-}
-.components .c { text-align: center; min-width: 60px; }
-.components .c .v { font-family: var(--serif); font-weight: 700; font-size: 18px; color: var(--ink); }
-.components .c .l { font-size: 10px; font-weight: 700; color: var(--ink-3); letter-spacing: 0.8px; text-transform: uppercase; margin-top: 2px; }
-
-/* mentor card */
-.mentor {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 22px; padding: 14px;
-  display: flex; gap: 12px; align-items: center;
-}
-.mentor .icon {
-  width: 44px; height: 44px; border-radius: 14px;
-  background: var(--coral-light); border: 1px solid rgba(242,107,91,0.2);
-  display: flex; align-items: center; justify-content: center;
-}
-.mentor .body { flex: 1; }
-.mentor .body .lab { font-size: 9px; font-weight: 700; color: var(--coral); letter-spacing: 1.2px; text-transform: uppercase; }
-.mentor .body .t { font-size: 14px; font-weight: 800; color: var(--ink); margin-top: 2px; line-height: 1.2; }
-.mentor .body .b { font-size: 11px; color: var(--ink-2); margin-top: 3px; line-height: 1.35; }
-
-/* pending check */
-.pending {
-  background: var(--coral-light); border: 1px solid rgba(242,107,91,0.25);
-  border-radius: 22px; padding: 12px;
-  display: flex; gap: 12px; align-items: center;
-}
-.pending .icon {
-  width: 38px; height: 38px; border-radius: 12px;
-  background: var(--coral); display: flex; align-items: center; justify-content: center;
-}
-.pending .lab { font-size: 9px; font-weight: 700; color: var(--coral); letter-spacing: 1.2px; text-transform: uppercase; }
-.pending .t { font-size: 13px; font-weight: 800; color: var(--ink); margin-top: 2px; }
-.pending .b { font-size: 10px; color: var(--ink-2); margin-top: 1px; }
-
-/* metrics */
-.metrics .head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.metrics .head .ic {
-  width: 28px; height: 28px; border-radius: 9px;
-  background: var(--coral-light); display: flex; align-items: center; justify-content: center;
-}
-.metrics .grid { display: flex; gap: 10px; }
-.metric {
-  flex: 1; background: var(--bg); border: 1px solid var(--border);
-  border-radius: 14px; padding: 11px;
-}
-.metric .l { font-size: 10px; font-weight: 700; color: var(--ink-3); letter-spacing: 0.7px; text-transform: uppercase; }
-.metric .v { font-family: var(--serif); font-weight: 700; font-size: 26px; letter-spacing: -0.5px; }
-.metric .v small { font-size: 13px; font-weight: 700; margin-left: 2px; }
-.metric .s { font-size: 9px; color: var(--ink-3); margin-top: 2px; }
-.v.coral { color: var(--coral); }
-.v.safe { color: var(--safe); }
-.v.warn { color: var(--moderate); }
-.v.risky { color: var(--risky); }
-
-/* meals */
-.meals .h { display: flex; justify-content: space-between; margin-bottom: 8px; }
-.meals .h .all { font-size: 12px; font-weight: 700; color: var(--coral); }
-.meal {
-  display: flex; align-items: center; gap: 10px; padding: 9px 0;
-  border-top: 1px solid var(--border);
-}
-.meal:first-of-type { border-top: 0; padding-top: 4px; }
-.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.dot.safe { background: var(--safe); }
-.dot.moderate { background: var(--moderate); }
-.dot.risky { background: var(--risky); }
-.meal .name { font-size: 13px; font-weight: 700; color: var(--ink); }
-.meal .meta { font-size: 10px; color: var(--ink-3); margin-top: 1px; }
-
-/* quick actions */
-.qa { display: flex; gap: 8px; }
-.qa .a {
-  flex: 1; background: var(--card); border: 1px solid var(--border);
-  border-radius: 16px; padding: 11px 8px; display: flex; flex-direction: column;
-  align-items: center; gap: 6px;
-}
-.qa .a .ic {
-  width: 34px; height: 34px; border-radius: 11px;
-  background: var(--coral-light); display: flex; align-items: center; justify-content: center;
-}
-.qa .a .l { font-size: 11px; font-weight: 700; color: var(--ink); }
-.qa .a .v { font-size: 9px; color: var(--ink-3); }
-
-/* weekly review */
+/* ── Weekly review prompt ──────────────────────────── */
 .review {
-  background: var(--card-alt); border: 1px solid var(--border);
-  border-radius: 22px; padding: 14px;
-  display: flex; gap: 11px; align-items: center;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 24px;
+  padding: 22px;
+  position: relative; overflow: hidden;
+  box-shadow: 0 18px 30px -22px rgba(27,20,16,0.45);
 }
-.review .ic {
-  width: 38px; height: 38px; border-radius: 12px;
-  background: var(--amber-bg); display: flex; align-items: center; justify-content: center;
+.review::before {
+  content: ""; position: absolute; top: -60px; left: -60px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(220,77,62,0.30), transparent 65%);
 }
-.review .t { font-size: 13px; font-weight: 800; color: var(--ink); }
-.review .s { font-size: 11px; color: var(--ink-2); margin-top: 1px; line-height: 1.3; }
-
-/* TIR bar */
-.tir-bar {
-  display: flex; height: 12px; border-radius: 6px; overflow: hidden;
-  background: var(--border-light); margin-top: 14px;
+.review .lab {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.6px;
+  text-transform: uppercase; color: rgba(255,255,255,0.55);
 }
-.tir-bar > div { transition: flex 0.4s; }
-.tir-row { display: flex; justify-content: space-between; margin-top: 8px; font-size: 10px; }
-.tir-row .col .pct { font-weight: 700; }
-.tir-row .col .lab { color: var(--ink-3); }
-
-/* meal mix rows */
-.mix-row { display: flex; align-items: center; padding: 5px 0; gap: 9px; }
-.mix-row .name { font-size: 13px; color: var(--ink); flex: 1; }
-.mix-row .count { font-size: 13px; font-weight: 700; }
-
-/* extreme cards */
-.extremes { display: flex; gap: 10px; }
-.extremes .e {
-  flex: 1; background: var(--card); border: 1px solid var(--border);
-  border-radius: 22px; padding: 14px;
+.review .h {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 22px; line-height: 1.2; letter-spacing: -0.5px;
+  margin-top: 6px;
 }
-.extremes .e .h { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
-
-/* nudge */
-.nudge {
-  background: var(--coral-light); border: 1px solid rgba(242,107,91,0.2);
-  border-radius: 22px; padding: 16px;
+.review .b {
+  font-size: 12px; color: rgba(255,255,255,0.7);
+  margin-top: 6px; font-weight: 400; line-height: 1.45;
 }
-.nudge .top { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-.nudge .top .lab { font-size: 9px; font-weight: 700; color: var(--coral); letter-spacing: 1.2px; text-transform: uppercase; }
-.nudge .t { font-family: var(--serif); font-weight: 700; font-size: 17px; color: var(--ink); line-height: 1.25; }
-.nudge .b { font-size: 12px; color: var(--ink-2); margin-top: 6px; line-height: 1.4; }
-
-/* coach chat bubbles */
-.chat {
-  flex: 1; padding: 14px; display: flex; flex-direction: column; gap: 8px;
-  background: var(--bg);
-}
-.bubble {
-  max-width: 80%; border-radius: 16px;
-  padding: 10px 13px; font-size: 12px; line-height: 1.4;
-}
-.bubble.bot {
-  align-self: flex-start; background: var(--card); border: 1px solid var(--border);
-  color: var(--ink);
-}
-.bubble.user {
-  align-self: flex-end; background: var(--coral); color: white;
-}
-.coach-header {
-  background: var(--card); border-bottom: 1px solid var(--border);
-  padding: 16px; display: flex; align-items: center; gap: 12px;
-}
-.coach-header .av {
-  width: 42px; height: 42px; border-radius: 50%; background: var(--coral);
-  display: flex; align-items: center; justify-content: center;
-}
-.coach-header .t { font-size: 16px; font-weight: 800; color: var(--ink); }
-.coach-header .s { font-size: 11px; color: var(--ink-2); }
-.chips {
-  display: flex; gap: 6px; padding: 0 14px 8px; overflow-x: auto;
-}
-.chip {
-  background: var(--card); border: 1px solid var(--border);
-  padding: 6px 11px; border-radius: 999px;
-  font-size: 10px; font-weight: 700; color: var(--ink-2); white-space: nowrap;
-}
-.input-wrap {
-  padding: 8px 14px 14px; border-top: 1px solid var(--border); background: var(--bg);
-  display: flex; gap: 8px; align-items: center;
-}
-.input-bar {
-  flex: 1; height: 42px; border: 1px solid var(--border); border-radius: 14px;
-  background: var(--card); display: flex; align-items: center; padding: 0 12px;
-  color: var(--ink-3); font-size: 12px;
-}
-.input-send {
-  width: 42px; height: 42px; border-radius: 50%; background: var(--coral);
-  display: flex; align-items: center; justify-content: center;
+.review .arrow {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 14px;
+  font-size: 10px; font-weight: 800; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--coral);
 }
 
-/* glucose screen specifics */
-.glucose-header {
-  background: var(--coral); padding: 16px 18px;
-  margin: -50px -18px 0; padding-top: 60px;
-}
-.glucose-header h1 { color: white; font-size: 22px; margin: 0; font-weight: 800; }
-.glucose-header .toggle {
-  display: flex; gap: 4px; margin-top: 12px;
-  background: rgba(255,255,255,0.18); border-radius: 14px; padding: 4px;
-}
-.glucose-header .toggle .t {
-  flex: 1; padding: 9px; text-align: center; font-size: 12px;
-  font-weight: 700; color: rgba(255,255,255,0.65); border-radius: 10px;
-}
-.glucose-header .toggle .t.active { background: white; color: var(--coral); }
-
-.stats-row { display: flex; gap: 8px; }
-.stat {
-  flex: 1; background: var(--card); border: 1px solid var(--border);
-  border-radius: 16px; padding: 12px;
-}
-.stat .l { font-size: 10px; font-weight: 700; color: var(--ink-3); letter-spacing: 0.6px; text-transform: uppercase; }
-.stat .vrow { display: flex; align-items: baseline; gap: 4px; margin-top: 5px; }
-.stat .v { font-size: 22px; font-weight: 800; color: var(--ink); }
-.stat .u { font-size: 11px; color: var(--ink-2); }
-
-.add-btn {
-  height: 48px; border-radius: 16px; background: var(--coral);
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  color: white; font-weight: 700; font-size: 14px;
-  box-shadow: 0 6px 14px rgba(242,107,91,0.35);
-}
-
-/* sparkline */
-.spark {
-  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-  padding: 12px; height: 130px; display: flex; flex-direction: column;
-}
-.spark .l { font-size: 11px; font-weight: 700; color: var(--ink-2); }
-.spark svg { flex: 1; margin-top: 4px; }
-
-/* splash */
+/* ── Splash ────────────────────────────────────────── */
 .splash {
-  flex: 1; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 16px; background: var(--bg);
-  padding-bottom: 80px;
-  position: relative;
+  flex: 1; position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 22px; padding-bottom: 80px;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(220,77,62,0.08), transparent 60%),
+    var(--paper);
 }
-.splash::before {
-  content: ""; position: absolute; inset: 0;
-  background-image:
-    radial-gradient(circle at 30% 20%, rgba(242,107,91,0.05), transparent 40%),
-    radial-gradient(circle at 70% 70%, rgba(242,107,91,0.05), transparent 50%);
+.lens-mark {
+  width: 84px; height: 84px;
+  display: flex; align-items: center; justify-content: center;
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes float {
+  0%,100% { transform: translateY(-4px); }
+  50% { transform: translateY(4px); }
 }
 .splash h1 {
-  font-family: var(--sans); font-weight: 900; font-size: 44px;
-  letter-spacing: -1px; color: var(--ink); margin: 0;
+  font-family: var(--serif); font-weight: 500;
+  font-size: 54px; letter-spacing: -2.4px; color: var(--ink); margin: 0;
+  font-feature-settings: "ss01";
 }
 .splash p {
-  font-size: 11px; font-weight: 600; letter-spacing: 2px;
-  text-transform: uppercase; color: rgba(42,31,24,0.55); margin: 0;
+  font-size: 10px; font-weight: 700; letter-spacing: 3.4px;
+  text-transform: uppercase; color: var(--ink-3); margin: 0;
 }
 .splash .progress {
-  position: absolute; bottom: 60px; width: 70%; height: 6px;
-  background: rgba(242,107,91,0.10); border-radius: 3px; overflow: hidden;
+  position: absolute; bottom: 80px; width: 56%; height: 2px;
+  background: rgba(220,77,62,0.10); border-radius: 2px; overflow: hidden;
 }
-.splash .progress > div { height: 100%; width: 75%; background: var(--coral); border-radius: 3px; }
-.lens-mark {
-  width: 80px; height: 80px;
-  display: flex; align-items: center; justify-content: center;
+.splash .progress > div {
+  height: 100%; width: 70%;
+  background: linear-gradient(90deg, var(--coral), var(--coral-deep));
+  border-radius: 2px;
+}
+
+/* ── Glucose screen (kept distinct) ─────────────────── */
+.gh-header {
+  margin: -56px -22px 0;
+  padding: 64px 22px 22px;
+  background: var(--ink);
+  color: var(--paper);
   position: relative;
-  animation: bounce 2.4s ease-in-out infinite;
+  border-radius: 0 0 32px 32px;
 }
-@keyframes bounce {
-  0%, 100% { transform: translateY(-6px); }
-  50% { transform: translateY(6px); }
+.gh-header .eyebrow-w { color: rgba(255,255,255,0.6); }
+.gh-header h1 {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 34px; letter-spacing: -1px; margin: 4px 0 18px;
+  color: white;
+}
+.gh-toggle {
+  display: inline-flex; gap: 4px;
+  background: rgba(255,255,255,0.08); border-radius: 999px; padding: 4px;
+}
+.gh-toggle .t {
+  padding: 8px 16px; font-size: 12px;
+  font-weight: 700; color: rgba(255,255,255,0.6); border-radius: 999px;
+}
+.gh-toggle .t.active { background: var(--paper); color: var(--ink); }
+
+.spark .sparkhead {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
+}
+.spark .delta {
+  font-size: 11px; font-weight: 700; color: var(--sage);
+  display: flex; align-items: center; gap: 3px;
+}
+.spark svg { width: 100%; height: 90px; display: block; }
+
+.add-btn {
+  height: 54px; border-radius: 18px;
+  background: var(--ink); color: var(--paper);
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  font-weight: 700; font-size: 14px; letter-spacing: 0.2px;
+  box-shadow: 0 18px 30px -16px rgba(27,20,16,0.4);
 }
 
-/* date row */
-.date-row {
-  display: flex; align-items: center; padding: 4px 4px 0;
-  font-size: 11px;
+.glucose-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 0; border-top: 1px solid var(--rule);
 }
-.date-row .d { color: var(--ink-3); flex: 1; }
-.streak {
-  display: flex; align-items: center; gap: 4px;
-  color: var(--amber); font-weight: 700; font-size: 11px;
+.glucose-row:first-of-type { border-top: 0; padding-top: 4px; }
+.glucose-row .v {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 22px; letter-spacing: -0.5px; color: var(--ink);
 }
-.streak svg { fill: var(--amber); }
+.glucose-row .v small { font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--ink-3); margin-left: 4px; vertical-align: 2px; }
+.glucose-row .meta { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+.glucose-row .badge {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 1.2px;
+  text-transform: uppercase;
+  padding: 5px 10px; border-radius: 999px;
+}
+.glucose-row .badge.safe { background: var(--sage-soft); color: var(--sage); }
 
+/* ── Weekly review screen ──────────────────────────── */
+.wr-head { margin-bottom: 6px; padding-top: 4px; }
+.wr-head .eyebrow { margin-bottom: 4px; }
+.wr-head .h {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 32px; line-height: 1.05; letter-spacing: -1px;
+}
+.wr-head .h em { font-style: italic; color: var(--coral); }
+
+.tir-card .v {
+  font-family: var(--serif); font-weight: 500; font-size: 64px;
+  letter-spacing: -2px; color: var(--ink); line-height: 1;
+}
+.tir-card .v small { font-family: var(--sans); font-size: 18px; font-weight: 700; color: var(--ink-3); margin-left: 4px; vertical-align: 16px; }
+.tir-card .target { font-size: 12px; color: var(--ink-3); margin-top: 6px; }
+.tir-bar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; background: var(--paper-3); margin-top: 22px; }
+.tir-row { display: flex; justify-content: space-between; margin-top: 10px; font-size: 10px; }
+.tir-row .c .pct { font-family: var(--serif); font-weight: 600; font-size: 16px; letter-spacing: -0.3px; }
+.tir-row .c .lab { font-size: 9px; color: var(--ink-3); letter-spacing: 1.2px; text-transform: uppercase; font-weight: 700; margin-top: 2px; }
+
+.extremes { display: flex; gap: 14px; }
+.extremes .e { flex: 1; }
+.extremes .e .h { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.extremes .e .v {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 28px; letter-spacing: -0.8px; line-height: 1;
+}
+.extremes .e .v small { font-family: var(--sans); font-size: 11px; font-weight: 700; color: var(--ink-3); margin-left: 4px; vertical-align: 4px; }
+
+.mix-row { display: flex; align-items: center; padding: 8px 0; border-top: 1px solid var(--rule); }
+.mix-row:first-of-type { border-top: 0; padding-top: 4px; }
+.mix-row .name { font-size: 13px; color: var(--ink); flex: 1; }
+.mix-row .count { font-family: var(--serif); font-weight: 500; font-size: 18px; letter-spacing: -0.3px; }
+.mix-row .count.safe { color: var(--sage); }
+.mix-row .count.moderate { color: var(--amber); }
+.mix-row .count.risky { color: var(--risky); }
+
+.nudge {
+  background: var(--paper-3);
+  border-radius: 24px;
+  padding: 22px;
+}
+.nudge .lab {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.6px;
+  text-transform: uppercase; color: var(--coral);
+}
+.nudge .h {
+  font-family: var(--serif); font-weight: 500;
+  font-size: 22px; line-height: 1.2; letter-spacing: -0.5px;
+  margin-top: 6px;
+}
+.nudge .h em { font-style: italic; color: var(--coral); }
+.nudge .b {
+  font-size: 13px; color: var(--ink-2);
+  margin-top: 8px; line-height: 1.5;
+}
+
+/* ── Coach ─────────────────────────────────────────── */
+.coach-bar {
+  margin: -56px -22px 0;
+  padding: 64px 22px 18px;
+  background: var(--paper);
+  display: flex; align-items: center; gap: 14px;
+  border-bottom: 1px solid var(--rule);
+}
+.coach-bar .av {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--ink); display: flex; align-items: center; justify-content: center;
+}
+.coach-bar .name { font-family: var(--serif); font-weight: 500; font-size: 18px; letter-spacing: -0.3px; }
+.coach-bar .sub { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+.coach-bar .status {
+  margin-left: auto; display: flex; align-items: center; gap: 5px;
+  font-size: 10px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--sage);
+}
+.coach-bar .status::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--sage);
+  box-shadow: 0 0 0 4px rgba(92,138,110,0.16);
+}
+
+.chat { padding: 22px 22px 0; display: flex; flex-direction: column; gap: 14px; }
+.chat .when {
+  font-size: 9.5px; color: var(--ink-3); text-align: center;
+  letter-spacing: 1.2px; text-transform: uppercase; font-weight: 700;
+  margin: 4px 0 -2px;
+}
+.bubble {
+  max-width: 84%; padding: 14px 16px;
+  font-size: 13.5px; line-height: 1.5;
+}
+.bubble.bot {
+  align-self: flex-start; background: var(--paper-2);
+  color: var(--ink); border-radius: 18px 18px 18px 4px;
+}
+.bubble.user {
+  align-self: flex-end; background: var(--ink); color: var(--paper);
+  border-radius: 18px 18px 4px 18px;
+}
+.chips { display: flex; gap: 8px; padding: 6px 22px 0; overflow-x: auto; }
+.chip {
+  background: var(--paper); border: 1px solid var(--rule);
+  padding: 8px 14px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; color: var(--ink-2); white-space: nowrap;
+}
+.input-wrap {
+  margin-top: auto;
+  padding: 12px 18px 14px; background: var(--paper);
+  display: flex; gap: 10px; align-items: center;
+}
+.input-bar {
+  flex: 1; height: 46px; border-radius: 23px;
+  background: var(--paper-2); display: flex; align-items: center;
+  padding: 0 16px; color: var(--ink-3); font-size: 13px; font-weight: 500;
+}
+.input-send {
+  width: 46px; height: 46px; border-radius: 50%; background: var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 14px rgba(220,77,62,0.3);
+}
+
+/* ── Footer ────────────────────────────────────────── */
 footer {
-  margin-top: 60px; text-align: center; color: var(--ink-2); font-size: 12px;
+  margin-top: 80px; text-align: center; color: var(--ink-2); font-size: 12px;
+  font-weight: 500;
+}
+footer code {
+  background: rgba(27,20,16,0.06); padding: 2px 6px; border-radius: 4px;
+  font-family: 'SF Mono', Monaco, monospace; font-size: 11px;
 }
 </style>
 </head>
 <body>
 
-<div class="intro">
-  <div class="tag">Warm Clinical · 2026</div>
-  <h1>GlucoLens redesign mockup</h1>
-  <p>The new Today stack replaces the honeycomb tile launcher. Cream surfaces, terracotta type, coral as the single signature accent.<br>Lens Score is the daily target you chase. The Scan→Glucose loop closes the cause-and-effect feedback no other diabetes app at this price point closes.</p>
+<div class="page-head">
+  <div class="kicker">Editorial · 2026</div>
+  <h1>A diabetes app that <em>doesn't feel like one</em>.</h1>
+  <p>Warm paper surfaces, deeper coral, big serif numerals. The Lens Score and the Scan→Glucose loop are the centrepieces — every other surface fades to make them louder.</p>
 </div>
 
 <div class="row">
 
-  <!-- ───── PHONE 1 — Splash ─────────────────────────────────────────────── -->
-  <div>
+  <!-- ─── PHONE 1 ─── Splash ─────────────────────────────── -->
+  <div class="col">
     <div class="phone">
       <div class="screen">
         <div class="splash">
           <div class="lens-mark">
-            <svg width="80" height="80" viewBox="0 0 40 40">
-              <circle cx="20" cy="20" r="19" fill="rgba(242,107,91,0.10)" stroke="#F26B5B" stroke-width="2"/>
-              <circle cx="20" cy="20" r="13.5" fill="none" stroke="#F26B5B" stroke-width="1.5" stroke-opacity="0.45"/>
-              <circle cx="20" cy="20" r="9.5" fill="#F26B5B"/>
-              <circle cx="20" cy="20" r="5.5" fill="#FFFBF7"/>
-              <circle cx="20" cy="20" r="2.5" fill="#F26B5B"/>
+            <svg width="84" height="84" viewBox="0 0 40 40">
+              <circle cx="20" cy="20" r="18.5" fill="none" stroke="#1B1410" stroke-width="0.4" stroke-opacity="0.18"/>
+              <circle cx="20" cy="20" r="14" fill="none" stroke="#DC4D3E" stroke-width="0.6" stroke-opacity="0.3"/>
+              <circle cx="20" cy="20" r="10" fill="#DC4D3E"/>
+              <circle cx="20" cy="20" r="6" fill="#FAF7F1"/>
+              <circle cx="20" cy="20" r="2.6" fill="#1B1410"/>
             </svg>
           </div>
           <h1>GlucoLens</h1>
-          <p>Smart Glucose Monitoring</p>
+          <p>see what food does</p>
           <div class="progress"><div></div></div>
         </div>
       </div>
     </div>
-    <div class="phone-label">Splash<small>Cream + coral · cohesive identity</small></div>
+    <div class="phone-caption">
+      <div class="t">Splash</div>
+      <div class="s">Editorial mark · serif logotype · breathing room</div>
+    </div>
   </div>
 
-  <!-- ───── PHONE 2 — Home (the main thing) ──────────────────────────────── -->
-  <div>
+  <!-- ─── PHONE 2 ─── Home ──────────────────────────────── -->
+  <div class="col">
     <div class="phone">
       <div class="screen">
-        <div class="status">
+        <div class="statusbar">
           <span>9:41</span>
-          <div class="right">
+          <div class="icons">
+            <svg width="16" height="11" viewBox="0 0 16 11"><circle cx="2.5" cy="8.5" r="1.5"/><path d="M0.5 6.5 a4 4 0 0 1 5 0" fill="none" stroke="#1B1410" stroke-width="1.2" stroke-linecap="round"/><path d="M-1 4 a8 8 0 0 1 9 0" fill="none" stroke="#1B1410" stroke-width="1.2" stroke-linecap="round"/></svg>
             <svg width="14" height="10" viewBox="0 0 14 10"><rect x="0" y="6" width="2" height="4" rx="0.5"/><rect x="3" y="4" width="2" height="6" rx="0.5"/><rect x="6" y="2" width="2" height="8" rx="0.5"/><rect x="9" y="0" width="2" height="10" rx="0.5"/></svg>
-            <svg width="22" height="10" viewBox="0 0 22 10"><rect x="0" y="0" width="18" height="10" rx="2" fill="none" stroke="#2A1F18" stroke-width="1"/><rect x="2" y="2" width="14" height="6" rx="1"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="19" height="10" rx="2.5" fill="none" stroke="#1B1410" stroke-width="1"/><rect x="2" y="2" width="16" height="7" rx="1.4"/><rect x="20" y="3.5" width="1.5" height="4" rx="0.5"/></svg>
           </div>
         </div>
 
-        <div class="scroll-area">
+        <div class="scroll">
 
-          <div class="date-row">
-            <div class="d">Sunday, 10 May</div>
+          <div class="metaline">
+            <div class="date">Sunday, 10 May</div>
             <div class="streak">
-              <svg width="11" height="11" viewBox="0 0 24 24"><path d="M13.5 0.67s.74 1.07.74 2.41c0 1.49-1.07 2.7-1.07 2.7-1.39-1.18-2.96-2.94-2.96-5.62V0c-3 1.5-5.5 4.66-5.5 8.5C4.71 13.7 8.83 18 14 18c5.17 0 9.29-4.3 9.29-9.5C23.29 4.66 19.5 1 13.5 0.67z"/></svg>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="#C7853F"><path d="M13.5 0.67s.74 1.07.74 2.41c0 1.49-1.07 2.7-1.07 2.7-1.39-1.18-2.96-2.94-2.96-5.62V0c-3 1.5-5.5 4.66-5.5 8.5C4.71 13.7 8.83 18 14 18c5.17 0 9.29-4.3 9.29-9.5C23.29 4.66 19.5 1 13.5 0.67z"/></svg>
               12-day streak
             </div>
           </div>
 
-          <!-- LENS SCORE HERO -->
+          <!-- HERO -->
           <div class="hero">
-            <div class="greet">Good morning, Justin</div>
-            <div class="band">Lens Score · On track</div>
-            <div class="dial">
-              <svg width="200" height="200" viewBox="0 0 200 200">
-                <defs>
-                  <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0" stop-color="#F26B5B" stop-opacity="1"/>
-                    <stop offset="1" stop-color="#3FB68D" stop-opacity="0.85"/>
-                  </linearGradient>
-                </defs>
-                <circle cx="100" cy="100" r="93" stroke="#E2D5C7" stroke-width="14" fill="none"/>
-                <circle cx="100" cy="100" r="93" stroke="url(#g1)" stroke-width="14" stroke-linecap="round" fill="none"
-                  stroke-dasharray="584" stroke-dashoffset="146" transform="rotate(-90 100 100)"/>
-              </svg>
-              <div style="display:flex;flex-direction:column;align-items:center">
-                <div class="num">76</div>
-                <div class="of">of 100</div>
+            <div class="top">
+              <div class="greet">Morning, Justin.</div>
+              <div class="band">On track</div>
+            </div>
+            <div class="label">Lens Score</div>
+            <div class="number">76<span class="of">/ 100</span></div>
+            <div class="components">
+              <div class="c">
+                <div class="label-mini">Glucose</div>
+                <div class="bar"><div style="width:82%"></div></div>
+                <div class="v">82</div>
+              </div>
+              <div class="c">
+                <div class="label-mini">Carbs</div>
+                <div class="bar"><div style="width:71%"></div></div>
+                <div class="v">71</div>
+              </div>
+              <div class="c">
+                <div class="label-mini">Steps</div>
+                <div class="bar"><div style="width:68%"></div></div>
+                <div class="v">68</div>
               </div>
             </div>
-            <div class="components">
-              <div class="c"><div class="v">82</div><div class="l">Glucose</div></div>
-              <div class="c"><div class="v">71</div><div class="l">Carbs</div></div>
-              <div class="c"><div class="v">68</div><div class="l">Steps</div></div>
-            </div>
           </div>
 
-          <!-- PENDING CHECK -->
+          <!-- PENDING — premium gradient card -->
           <div class="pending">
-            <div class="icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <div class="lab">Quick check-in</div>
+            <div class="t">How did the pasta land?</div>
+            <div class="row-bottom">
+              <div class="meta">92 minutes since you ate</div>
+              <div class="cta">
+                Log
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
             </div>
-            <div style="flex:1">
-              <div class="lab">Quick check-in</div>
-              <div class="t">How did "Whole-grain pasta" land?</div>
-              <div class="b">92 min since the meal · log a reading to score it</div>
-            </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F26B5B" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
           </div>
 
-          <!-- MENTOR -->
-          <div class="mentor">
-            <div class="icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F26B5B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18 9l-4.1 2.4L12 16l-1.9-4.6L6 9l4.1-1.4z"/></svg>
+          <!-- MENTOR — editorial quote card -->
+          <div class="card mentor">
+            <div class="top">
+              <div class="who">
+                <div class="av">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4"><path d="M12 3l1.9 4.6L18 9l-4.1 2.4L12 16l-1.9-4.6L6 9l4.1-1.4z"/></svg>
+                </div>
+                GlucoBot
+              </div>
+              <div class="when">Daily insight</div>
             </div>
-            <div class="body">
-              <div class="lab">GlucoBot · today</div>
-              <div class="t">Your mornings run higher than evenings</div>
-              <div class="b">Could be the dawn phenomenon. A short walk before breakfast usually helps.</div>
+            <div class="h">Your mornings run <em>higher</em> than your evenings.</div>
+            <div class="b">Mon, Tue and Wed all peaked above 9.5 mmol/L before 11am. Worth a short walk before breakfast — or a protein-led first bite.</div>
+            <div class="arrow">
+              Ask why
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
             </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8E7768" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
           </div>
 
-          <!-- HEALTH METRICS -->
+          <!-- METRICS -->
           <div class="card metrics">
             <div class="head">
-              <div class="ic">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F26B5B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-              </div>
-              <div class="eyebrow" style="flex:1">Glucose health</div>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8E7768" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              <div class="eyebrow">Glucose health</div>
+              <div class="arrow">View →</div>
             </div>
             <div class="grid">
-              <div class="metric">
+              <div class="m">
                 <div class="l">Est. A1c</div>
                 <div class="v coral">6.4<small>%</small></div>
-                <div class="s">38 readings · 90d</div>
+                <div class="s">38 readings · 90 days</div>
               </div>
-              <div class="metric">
-                <div class="l">Time in range</div>
-                <div class="v safe">82<small>%</small></div>
-                <div class="s">42 readings · 14d</div>
+              <div class="m">
+                <div class="l">In range</div>
+                <div class="v sage">82<small>%</small></div>
+                <div class="s">42 readings · 14 days</div>
               </div>
             </div>
           </div>
 
-          <!-- TODAY'S MEALS -->
+          <!-- MEALS -->
           <div class="card meals">
-            <div class="h">
+            <div class="head">
               <div class="eyebrow">Today's meals</div>
               <div class="all">See all</div>
             </div>
             <div class="meal">
-              <div class="dot safe"></div>
-              <div style="flex:1">
-                <div class="name">Greek yogurt with berries</div>
-                <div class="meta">7:42 AM · 28g carbs</div>
+              <div class="body">
+                <div class="name">Greek yogurt &amp; berries</div>
+                <div class="meta">7:42 am · 28g carbs</div>
               </div>
+              <div class="badge safe">In range</div>
             </div>
             <div class="meal">
-              <div class="dot moderate"></div>
-              <div style="flex:1">
-                <div class="name">Chicken &amp; brown rice bowl</div>
-                <div class="meta">12:18 PM · 64g carbs</div>
+              <div class="body">
+                <div class="name">Chicken &amp; brown rice</div>
+                <div class="meta">12:18 pm · 64g carbs</div>
               </div>
+              <div class="badge moderate">Climb</div>
             </div>
             <div class="meal">
-              <div class="dot safe"></div>
-              <div style="flex:1">
+              <div class="body">
                 <div class="name">Almonds &amp; apple</div>
-                <div class="meta">3:30 PM · 22g carbs</div>
+                <div class="meta">3:30 pm · 22g carbs</div>
               </div>
+              <div class="badge safe">In range</div>
             </div>
           </div>
 
           <!-- QUICK ACTIONS -->
           <div class="qa">
             <div class="a">
-              <div class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F26B5B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></div>
+              <div class="ic">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+              </div>
               <div class="l">Water</div>
-              <div class="v">5/8</div>
+              <div class="v">5<small>/8</small></div>
             </div>
             <div class="a">
-              <div class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F26B5B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+              <div class="ic">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14l-1 16H6z"/><path d="M9 4V2h6v2"/></svg>
+              </div>
               <div class="l">Weight</div>
-              <div class="v">Log</div>
+              <div class="v">82<small>kg</small></div>
             </div>
             <div class="a">
-              <div class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F26B5B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l5 16 2-7 7-2L4 4z"/></svg></div>
+              <div class="ic">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l5 16 2-7 7-2L4 4z"/></svg>
+              </div>
               <div class="l">Steps</div>
-              <div class="v">6,420</div>
+              <div class="v">6.4<small>k</small></div>
             </div>
           </div>
 
-          <!-- WEEKLY REVIEW -->
+          <!-- WEEKLY REVIEW — premium dark card -->
           <div class="review">
-            <div class="ic">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F4A261" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <div class="lab">Sunday review</div>
+            <div class="h">Last 7 days at a glance.</div>
+            <div class="b">Wins, patterns, and one thing to try this week.</div>
+            <div class="arrow">
+              Open review
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
             </div>
-            <div style="flex:1">
-              <div class="t">Your weekly review</div>
-              <div class="s">Last 7 days at a glance — wins, patterns, and one thing to try.</div>
-            </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8E7768" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
           </div>
 
         </div>
 
-        <!-- TAB BAR -->
+        <!-- TAB BAR — minimal -->
         <div class="tabbar">
-          <div class="tab active">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-            <span>Home</span>
-          </div>
-          <div class="tab">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-            <span>Plan</span>
-          </div>
-          <div class="fab">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"><path d="M23 19V8h-4l-2-3H7L5 8H1v11a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2z"/><circle cx="12" cy="13" r="4"/></svg>
-          </div>
-          <div class="tab">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.9 4.6L18 9l-4.1 2.4L12 16l-1.9-4.6L6 9l4.1-1.4z"/></svg>
-            <span>Coach</span>
-          </div>
-          <div class="tab">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <span>Profile</span>
+          <div class="tabbar-inner">
+            <div class="tab active">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              <span>Home</span>
+            </div>
+            <div class="tab">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+              <span>Plan</span>
+            </div>
+            <div class="fab">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M23 19V8h-4l-2-3H7L5 8H1v11a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </div>
+            <div class="tab">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.9 4.6L18 9l-4.1 2.4L12 16l-1.9-4.6L6 9l4.1-1.4z"/></svg>
+              <span>Coach</span>
+            </div>
+            <div class="tab">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span>You</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
-    <div class="phone-label">Home — single-scroll Today<small>Lens Score · Pending check · Mentor · A1c · Meals</small></div>
+    <div class="phone-caption">
+      <div class="t">Home — single-scroll Today</div>
+      <div class="s">Hero score · pending check · mentor · A1c · meals · review</div>
+    </div>
   </div>
 
-  <!-- ───── PHONE 3 — Glucose with A1c/TIR ───────────────────────────────── -->
-  <div>
+  <!-- ─── PHONE 3 ─── Glucose ────────────────────────────── -->
+  <div class="col">
     <div class="phone">
       <div class="screen">
-        <div class="status">
-          <span>9:41</span>
-          <div class="right">
-            <svg width="14" height="10" viewBox="0 0 14 10"><rect x="0" y="6" width="2" height="4" rx="0.5"/><rect x="3" y="4" width="2" height="6" rx="0.5"/><rect x="6" y="2" width="2" height="8" rx="0.5"/><rect x="9" y="0" width="2" height="10" rx="0.5"/></svg>
-            <svg width="22" height="10" viewBox="0 0 22 10"><rect x="0" y="0" width="18" height="10" rx="2" fill="none" stroke="#2A1F18" stroke-width="1"/><rect x="2" y="2" width="14" height="6" rx="1"/></svg>
+        <div class="statusbar" style="color:white">
+          <span style="color:white">9:41</span>
+          <div class="icons">
+            <svg width="14" height="10" viewBox="0 0 14 10" style="fill:white"><rect x="0" y="6" width="2" height="4" rx="0.5"/><rect x="3" y="4" width="2" height="6" rx="0.5"/><rect x="6" y="2" width="2" height="8" rx="0.5"/><rect x="9" y="0" width="2" height="10" rx="0.5"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11" style="fill:white;stroke:white"><rect x="0.5" y="0.5" width="19" height="10" rx="2.5" fill="none" stroke-width="1"/><rect x="2" y="2" width="16" height="7" rx="1.4"/></svg>
           </div>
         </div>
 
-        <div class="glucose-header">
-          <h1>Health Log</h1>
-          <div class="toggle">
-            <div class="t active">Blood Glucose</div>
+        <div class="gh-header">
+          <div class="eyebrow eyebrow-w">Health log</div>
+          <h1>Glucose</h1>
+          <div class="gh-toggle">
+            <div class="t active">Glucose</div>
             <div class="t">Weight</div>
           </div>
         </div>
 
-        <div class="scroll-area" style="margin-top:14px">
+        <div class="scroll" style="margin-top:24px">
 
-          <!-- A1c + TIR -->
           <div class="card metrics">
             <div class="head">
-              <div class="ic">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F26B5B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-              </div>
-              <div class="eyebrow" style="flex:1">Glucose health</div>
+              <div class="eyebrow">90-day picture</div>
             </div>
             <div class="grid">
-              <div class="metric">
+              <div class="m">
                 <div class="l">Est. A1c</div>
                 <div class="v coral">6.4<small>%</small></div>
-                <div class="s">38 readings · 90d</div>
+                <div class="s">38 readings</div>
               </div>
-              <div class="metric">
-                <div class="l">Time in range</div>
-                <div class="v safe">82<small>%</small></div>
-                <div class="s">42 readings · 14d</div>
+              <div class="m">
+                <div class="l">In range</div>
+                <div class="v sage">82<small>%</small></div>
+                <div class="s">14-day window</div>
               </div>
-            </div>
-          </div>
-
-          <!-- Stats row -->
-          <div class="stats-row">
-            <div class="stat">
-              <div class="l">Latest</div>
-              <div class="vrow"><div class="v">6.7</div><div class="u">mmol/L</div></div>
-            </div>
-            <div class="stat">
-              <div class="l">7-Day Avg</div>
-              <div class="vrow"><div class="v">7.2</div><div class="u">mmol/L</div></div>
             </div>
           </div>
 
           <!-- Sparkline -->
-          <div class="spark">
-            <div class="l">Last 14 readings</div>
-            <svg viewBox="0 0 320 80" preserveAspectRatio="none">
+          <div class="card spark">
+            <div class="sparkhead">
+              <div class="eyebrow">Last 14 readings</div>
+              <div class="delta">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 18 13.5 8.5 8.5 13.5 1 18"/></svg>
+                Trending steady
+              </div>
+            </div>
+            <svg viewBox="0 0 320 90" preserveAspectRatio="none">
               <defs>
-                <linearGradient id="spark-g" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="#F26B5B" stop-opacity="0.3"/>
-                  <stop offset="1" stop-color="#F26B5B" stop-opacity="0"/>
+                <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#DC4D3E" stop-opacity="0.22"/>
+                  <stop offset="1" stop-color="#DC4D3E" stop-opacity="0"/>
                 </linearGradient>
               </defs>
-              <!-- in-range band 70-180 mg/dL ≈ 3.9-10.0 mmol/L -->
-              <rect x="0" y="22" width="320" height="40" fill="#3FB68D" fill-opacity="0.05"/>
-              <line x1="0" y1="22" x2="320" y2="22" stroke="#3FB68D" stroke-dasharray="3 3" stroke-width="0.6"/>
-              <line x1="0" y1="62" x2="320" y2="62" stroke="#3FB68D" stroke-dasharray="3 3" stroke-width="0.6"/>
-              <path d="M 0,42 L 24,38 L 48,46 L 72,32 L 96,28 L 120,40 L 144,52 L 168,48 L 192,36 L 216,30 L 240,38 L 264,44 L 288,36 L 312,30 L 320,28"
-                fill="none" stroke="#F26B5B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M 0,42 L 24,38 L 48,46 L 72,32 L 96,28 L 120,40 L 144,52 L 168,48 L 192,36 L 216,30 L 240,38 L 264,44 L 288,36 L 312,30 L 320,28 L 320,80 L 0,80 Z" fill="url(#spark-g)"/>
-              <circle cx="312" cy="30" r="3.4" fill="#F26B5B"/>
-              <circle cx="312" cy="30" r="6" fill="#F26B5B" fill-opacity="0.18"/>
+              <line x1="0" y1="28" x2="320" y2="28" stroke="#5C8A6E" stroke-dasharray="2 4" stroke-width="0.6" stroke-opacity="0.6"/>
+              <line x1="0" y1="68" x2="320" y2="68" stroke="#5C8A6E" stroke-dasharray="2 4" stroke-width="0.6" stroke-opacity="0.6"/>
+              <path d="M 0,48 L 24,42 L 48,52 L 72,36 L 96,30 L 120,46 L 144,58 L 168,52 L 192,40 L 216,32 L 240,42 L 264,50 L 288,38 L 312,32 L 320,30"
+                fill="none" stroke="#1B1410" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M 0,48 L 24,42 L 48,52 L 72,36 L 96,30 L 120,46 L 144,58 L 168,52 L 192,40 L 216,32 L 240,42 L 264,50 L 288,38 L 312,32 L 320,30 L 320,90 L 0,90 Z" fill="url(#sg)"/>
+              <circle cx="312" cy="32" r="3.4" fill="#DC4D3E"/>
+              <circle cx="312" cy="32" r="7" fill="#DC4D3E" fill-opacity="0.18"/>
             </svg>
           </div>
 
           <div class="add-btn">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Log Reading
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Log a reading
           </div>
 
-          <!-- list -->
-          <div style="display:flex;flex-direction:column;gap:8px;padding-top:4px">
-            <div class="card" style="padding:12px">
-              <div class="flex between center">
-                <div>
-                  <div style="font-size:18px;font-weight:800">6.7 <span style="font-size:11px;color:var(--ink-3);font-weight:600">mmol/L</span></div>
-                  <div style="font-size:11px;color:var(--ink-3);margin-top:2px">After meal · 9:30 AM</div>
-                </div>
-                <div style="background:var(--safe-bg);color:var(--safe);font-size:10px;font-weight:700;padding:5px 10px;border-radius:999px">In range</div>
+          <div class="card">
+            <div class="eyebrow" style="margin-bottom:8px">Today</div>
+            <div class="glucose-row">
+              <div>
+                <div class="v">6.7<small>mmol/L</small></div>
+                <div class="meta">After meal · 9:30 am</div>
               </div>
+              <div class="badge safe">In range</div>
             </div>
-            <div class="card" style="padding:12px">
-              <div class="flex between center">
-                <div>
-                  <div style="font-size:18px;font-weight:800">5.4 <span style="font-size:11px;color:var(--ink-3);font-weight:600">mmol/L</span></div>
-                  <div style="font-size:11px;color:var(--ink-3);margin-top:2px">Fasting · 7:10 AM</div>
-                </div>
-                <div style="background:var(--safe-bg);color:var(--safe);font-size:10px;font-weight:700;padding:5px 10px;border-radius:999px">In range</div>
+            <div class="glucose-row">
+              <div>
+                <div class="v">5.4<small>mmol/L</small></div>
+                <div class="meta">Fasting · 7:10 am</div>
               </div>
+              <div class="badge safe">In range</div>
             </div>
           </div>
+
         </div>
 
         <div class="tabbar">
-          <div class="tab"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></div>
-          <div class="tab"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Plan</span></div>
-          <div class="fab"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"><path d="M23 19V8h-4l-2-3H7L5 8H1v11a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2z"/><circle cx="12" cy="13" r="4"/></svg></div>
-          <div class="tab"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.9 4.6L18 9l-4.1 2.4L12 16l-1.9-4.6L6 9l4.1-1.4z"/></svg><span>Coach</span></div>
-          <div class="tab"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Profile</span></div>
+          <div class="tabbar-inner">
+            <div class="tab"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></div>
+            <div class="tab"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Plan</span></div>
+            <div class="fab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M23 19V8h-4l-2-3H7L5 8H1v11a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+            <div class="tab"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.9 4.6L18 9l-4.1 2.4L12 16l-1.9-4.6L6 9l4.1-1.4z"/></svg><span>Coach</span></div>
+            <div class="tab"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>You</span></div>
+          </div>
         </div>
       </div>
     </div>
-    <div class="phone-label">Glucose<small>A1c + Time-in-Range up top — readings below</small></div>
+    <div class="phone-caption">
+      <div class="t">Glucose</div>
+      <div class="s">Dark editorial header · A1c &amp; TIR up top · readings below</div>
+    </div>
   </div>
 
-  <!-- ───── PHONE 4 — Weekly Review ──────────────────────────────────────── -->
-  <div>
+  <!-- ─── PHONE 4 ─── Weekly Review ──────────────────────── -->
+  <div class="col">
     <div class="phone">
       <div class="screen">
-        <div class="status">
+        <div class="statusbar">
           <span>9:41</span>
-          <div class="right">
+          <div class="icons">
             <svg width="14" height="10" viewBox="0 0 14 10"><rect x="0" y="6" width="2" height="4" rx="0.5"/><rect x="3" y="4" width="2" height="6" rx="0.5"/><rect x="6" y="2" width="2" height="8" rx="0.5"/><rect x="9" y="0" width="2" height="10" rx="0.5"/></svg>
-            <svg width="22" height="10" viewBox="0 0 22 10"><rect x="0" y="0" width="18" height="10" rx="2" fill="none" stroke="#2A1F18" stroke-width="1"/><rect x="2" y="2" width="14" height="6" rx="1"/></svg>
+            <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="19" height="10" rx="2.5" fill="none" stroke="#1B1410" stroke-width="1"/><rect x="2" y="2" width="16" height="7" rx="1.4"/></svg>
           </div>
         </div>
 
-        <div class="scroll-area">
-          <div class="flex center" style="margin-bottom:4px">
-            <div style="width:38px;height:38px;border-radius:19px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2A1F18" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-            </div>
-            <div style="margin-left:14px">
-              <div class="eyebrow">Last 7 days</div>
-              <div class="serif" style="font-size:22px">Your weekly review</div>
-            </div>
+        <div class="scroll">
+          <div class="wr-head">
+            <div class="eyebrow">Week ending Sunday, 10 May</div>
+            <div class="h">Your week, <em>distilled</em>.</div>
           </div>
 
           <!-- TIR HERO -->
-          <div class="card">
-            <div class="eyebrow">Time in Range</div>
-            <div style="display:flex;align-items:baseline;margin-top:4px">
-              <div class="serif" style="font-size:42px">82</div>
-              <div style="font-size:15px;font-weight:800;color:var(--ink-2);margin-left:4px">%</div>
-            </div>
-            <div style="font-size:11px;color:var(--ink-2);margin-top:3px">42 readings · ADA target is 70%+</div>
+          <div class="card tir-card">
+            <div class="eyebrow" style="margin-bottom:8px">Time in range</div>
+            <div class="v">82<small>%</small></div>
+            <div class="target">42 readings · ADA target is 70%+</div>
             <div class="tir-bar">
-              <div style="flex:6;background:var(--risky)"></div>
-              <div style="flex:82;background:var(--safe)"></div>
-              <div style="flex:12;background:var(--moderate)"></div>
+              <div style="flex:6;background:#A93D32"></div>
+              <div style="flex:82;background:#5C8A6E"></div>
+              <div style="flex:12;background:#C7853F"></div>
             </div>
             <div class="tir-row">
-              <div class="col"><div class="pct" style="color:var(--risky)">6%</div><div class="lab">Below</div></div>
-              <div class="col"><div class="pct" style="color:var(--safe)">82%</div><div class="lab">In range</div></div>
-              <div class="col"><div class="pct" style="color:var(--moderate)">12%</div><div class="lab">Above</div></div>
+              <div class="c"><div class="pct" style="color:#A93D32">6%</div><div class="lab">Below</div></div>
+              <div class="c"><div class="pct" style="color:#5C8A6E">82%</div><div class="lab">In range</div></div>
+              <div class="c"><div class="pct" style="color:#C7853F">12%</div><div class="lab">Above</div></div>
             </div>
           </div>
 
-          <!-- HIGH/LOW -->
           <div class="extremes">
-            <div class="e">
+            <div class="card e">
               <div class="h">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#E0A93C" stroke-width="2.2" stroke-linecap="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#C7853F" stroke-width="2.4"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
                 <div class="eyebrow">Highest</div>
               </div>
-              <div style="display:flex;align-items:baseline">
-                <div class="serif" style="font-size:24px">11.8</div>
-                <div style="font-size:10px;color:var(--ink-2);margin-left:4px">mmol/L</div>
-              </div>
+              <div class="v">11.8<small>mmol/L</small></div>
             </div>
-            <div class="e">
+            <div class="card e">
               <div class="h">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#D9534F" stroke-width="2.2" stroke-linecap="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/></svg>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#A93D32" stroke-width="2.4"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/></svg>
                 <div class="eyebrow">Lowest</div>
               </div>
-              <div style="display:flex;align-items:baseline">
-                <div class="serif" style="font-size:24px">3.6</div>
-                <div style="font-size:10px;color:var(--ink-2);margin-left:4px">mmol/L</div>
-              </div>
+              <div class="v">3.6<small>mmol/L</small></div>
             </div>
           </div>
 
-          <!-- A1C CONTEXT -->
-          <div class="card flex center gap-12" style="padding:14px">
-            <div style="width:38px;height:38px;border-radius:12px;background:var(--coral-light);display:flex;align-items:center;justify-content:center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F26B5B" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
-            </div>
-            <div style="flex:1">
-              <div class="eyebrow">90-day estimated A1c</div>
-              <div style="font-size:15px;font-weight:800;margin-top:1px">6.4%</div>
-              <div style="font-size:10px;color:var(--ink-2);margin-top:1px">high confidence · 38 readings</div>
-            </div>
-          </div>
-
-          <!-- MEAL MIX -->
+          <!-- Meal mix -->
           <div class="card">
-            <div class="eyebrow" style="margin-bottom:8px">Meal mix</div>
-            <div class="mix-row"><div class="dot safe"></div><div class="name">Safe meals</div><div class="count" style="color:var(--safe)">14</div></div>
-            <div class="mix-row"><div class="dot moderate"></div><div class="name">Moderate</div><div class="count" style="color:var(--moderate)">6</div></div>
-            <div class="mix-row"><div class="dot risky"></div><div class="name">Risky</div><div class="count" style="color:var(--risky)">2</div></div>
+            <div class="eyebrow" style="margin-bottom:12px">Meal mix · 22 logged</div>
+            <div class="mix-row"><div class="name">Steady (in range)</div><div class="count safe">14</div></div>
+            <div class="mix-row"><div class="name">Mild climb</div><div class="count moderate">6</div></div>
+            <div class="mix-row"><div class="name">Big spike</div><div class="count risky">2</div></div>
           </div>
 
-          <!-- NUDGE -->
+          <!-- Nudge -->
           <div class="nudge">
-            <div class="top">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F26B5B" stroke-width="2.2"><path d="M12 3l1.9 4.6L18 9l-4.1 2.4L12 16l-1.9-4.6L6 9l4.1-1.4z"/></svg>
-              <div class="lab">Try this next week</div>
-            </div>
-            <div class="t">A 10-minute walk after dinner</div>
-            <div class="b">Three of your four biggest spikes this week were after the evening meal. Most studies show it cuts the post-meal spike by 15–25%.</div>
+            <div class="lab">Try this next week</div>
+            <div class="h">A 10-minute walk <em>after dinner</em>.</div>
+            <div class="b">Three of your four biggest spikes this week were after the evening meal. Most studies show a short walk cuts the post-meal climb by 15–25%.</div>
           </div>
         </div>
       </div>
     </div>
-    <div class="phone-label">Weekly review<small>The "Sunday artefact" that earns a renewal</small></div>
+    <div class="phone-caption">
+      <div class="t">Weekly review</div>
+      <div class="s">The Sunday artefact that earns a renewal</div>
+    </div>
   </div>
 
-  <!-- ───── PHONE 5 — Coach ──────────────────────────────────────────────── -->
-  <div>
+  <!-- ─── PHONE 5 ─── Coach ──────────────────────────────── -->
+  <div class="col">
     <div class="phone">
-      <div class="screen" style="padding:0">
-        <div style="padding-top:50px"></div>
-        <div class="coach-header">
+      <div class="screen" style="padding:56px 0 0">
+        <div class="coach-bar">
           <div class="av">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"><path d="M12 3l1.9 4.6L18 9l-4.1 2.4L12 16l-1.9-4.6L6 9l4.1-1.4z"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4"><path d="M12 3l1.9 4.6L18 9l-4.1 2.4L12 16l-1.9-4.6L6 9l4.1-1.4z"/></svg>
           </div>
-          <div style="flex:1">
-            <div class="t">GlucoBot</div>
-            <div class="s">Daily food, glucose, and habit coach</div>
+          <div>
+            <div class="name">GlucoBot</div>
+            <div class="sub">Daily food &amp; glucose coach</div>
           </div>
+          <div class="status">Online</div>
         </div>
 
         <div class="chat">
+          <div class="when">Today, 10:32</div>
           <div class="bubble bot">I'm here. Ask me about a food, a glucose reading, or a habit you'd like to build.</div>
           <div class="bubble user">My breakfast spiked me to 11.2 — what should I try tomorrow?</div>
-          <div class="bubble bot">11.2 mmol/L is a sharp climb. Two quick swaps: 1) put protein first (eggs, Greek yogurt) before any carbs, and 2) move to oats or whole-grain toast over white bread or sweetened cereal. Want me to draft a low-spike breakfast you'd actually eat?</div>
+          <div class="bubble bot">11.2 is a sharp climb. Two swaps:<br><br>1. <strong>Protein first.</strong> Eggs or Greek yogurt before any carbs.<br>2. <strong>Drop refined carbs.</strong> Move to oats or whole-grain toast over white bread or sweetened cereal.<br><br>Want me to draft a low-spike breakfast you'd actually eat?</div>
           <div class="bubble user">Yeah</div>
-          <div class="bubble bot">Plain Greek yogurt (½ cup) + berries (½ cup) + 12 almonds + a small whole-grain toast with 1 egg. ~28g carbs, paired with protein and fat — typical post-meal landing 6.5–7.8 mmol/L.</div>
+          <div class="bubble bot">Plain Greek yogurt (½ cup), berries (½ cup), 12 almonds, and a small whole-grain toast with one egg.<br><br>~28g carbs, balanced with protein and fat. Typical landing: 6.5–7.8 mmol/L.</div>
         </div>
 
         <div class="chips">
@@ -934,13 +1127,16 @@ footer {
         </div>
       </div>
     </div>
-    <div class="phone-label">Coach<small>Promoted from buried tab to a primary surface</small></div>
+    <div class="phone-caption">
+      <div class="t">Coach</div>
+      <div class="s">Promoted to a tab · proper conversation surface</div>
+    </div>
   </div>
 
 </div>
 
 <footer>
-  Mockup of the warm-clinical 2026 redesign · Open <code>docs/mockups/redesign-2026.html</code> in any browser.
+  Editorial 2026 redesign · Open <code>docs/mockups/redesign-2026.html</code>
 </footer>
 
 </body>
