@@ -108,8 +108,8 @@ export default function RootLayout() {
                 <Stack.Screen name="profile-edit" options={{}} />
                 <Stack.Screen name="water" options={{}} />
                 <Stack.Screen name="foods" options={{}} />
+                <Stack.Screen name="guide" options={{}} />
                 <Stack.Screen name="weekly-review" options={{}} />
-                <Stack.Screen name="coach" options={{ animation: "slide_from_bottom" }} />
               </Stack>
               <Toast />
             </SafeAreaProvider>

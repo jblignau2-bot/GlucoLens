@@ -181,7 +181,7 @@ export default function FoodsScreen() {
 
         {/* Footer link to Guide */}
         <Pressable
-          onPress={() => router.push("/(tabs)/reminders")}
+          onPress={() => router.push("/guide")}
           style={({ pressed }) => ({
             marginTop: 4,
             backgroundColor: colors.card,

@@ -6,6 +6,7 @@
  */
 
 import { View } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import { CoachChat } from "@/components/coach/CoachChat";
 import { TAB_BAR_HEIGHT } from "@/constants/tokens";
 
@@ -19,6 +20,11 @@ const TOPIC_PROMPTS = [
 ];
 
 export default function CoachTab() {
+  // Optional context param — when navigating from the home Mentor card we
+  // pass the headline so the chat opens with the right framing.
+  const params = useLocalSearchParams<{ context?: string }>();
+  const context = typeof params.context === "string" ? params.context : undefined;
+
   // Reserve room for the floating tab bar above the chat input.
   // CoachChat already pads its own input by `insets.bottom + 12`, so we add
   // exactly TAB_BAR_HEIGHT here to avoid double-padding the safe area.
@@ -26,7 +32,8 @@ export default function CoachTab() {
     <View style={{ flex: 1, paddingBottom: TAB_BAR_HEIGHT }}>
       <CoachChat
         applyTopInset
-        subtitle="Daily food, glucose, and habit coach"
+        context={context}
+        subtitle={context ?? "Daily food, glucose, and habit coach"}
         quickPrompts={TOPIC_PROMPTS}
       />
     </View>

@@ -26,7 +26,7 @@ export function MentorCard({ message }: Props) {
 
   return (
     <Pressable
-      onPress={() => router.push({ pathname: "/coach", params: { context: message.title } })}
+      onPress={() => router.push({ pathname: "/(tabs)/coach", params: { context: message.title } })}
       style={({ pressed }) => ({
         backgroundColor: colors.card,
         borderRadius: radius.xl,

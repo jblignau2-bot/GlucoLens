@@ -22,7 +22,7 @@ export function GlucoBotDock({ context, bottomOffset = 88 }: GlucoBotDockProps) 
       }}
     >
       <Pressable
-        onPress={() => router.push({ pathname: "/coach", params: context ? { context } : {} })}
+        onPress={() => router.push({ pathname: "/(tabs)/coach", params: context ? { context } : {} })}
         style={({ pressed }) => ({
           minHeight: 58,
           borderRadius: radius.lg,

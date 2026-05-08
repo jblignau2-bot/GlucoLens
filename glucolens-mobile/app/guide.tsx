@@ -284,7 +284,7 @@ export default function GlucoseGuideScreen() {
               expanded={expandedCards.has(card.title)}
               onToggle={() => toggleCard(card.title)}
               accentColor={currentCategory.color}
-              onAsk={() => router.push({ pathname: "/coach", params: { context: `${currentCategory.title}: ${card.title}` } })}
+              onAsk={() => router.push({ pathname: "/(tabs)/coach", params: { context: `${currentCategory.title}: ${card.title}` } })}
             />
           ))}
         </View>

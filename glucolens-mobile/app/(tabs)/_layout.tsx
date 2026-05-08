@@ -178,7 +178,6 @@ export default function TabsLayout() {
       />
       {/* Hidden — accessible via Home cards or Profile, not as a tab */}
       <Tabs.Screen name="glucose" options={{ href: null }} />
-      <Tabs.Screen name="reminders" options={{ href: null }} />
     </Tabs>
   );
 }
