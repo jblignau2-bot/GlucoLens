@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View, Text, ActivityIndicator } from "react-native";
 import { Redirect } from "expo-router";
 import { trpc } from "@/lib/trpc";
-import { useProfileStore } from "@/stores/profileStore";
+import { useProfileStore, type UserProfile } from "@/stores/profileStore";
 import { colors } from "@/constants/tokens";
 
 export default function Index() {
@@ -43,8 +43,9 @@ export default function Index() {
     if (skipOnboarding) return;
     if (!hydrated) return;
     if (profileQuery.data) {
-      setProfile(profileQuery.data as any);
-      if ((profileQuery.data as any).onboarding_complete === 1) setOnboarded(true);
+      const fetched = profileQuery.data as UserProfile;
+      setProfile(fetched);
+      if (fetched.onboarding_complete === 1 || fetched.onboardingComplete) setOnboarded(true);
       setChecked(true);
     } else if (profileQuery.isError) {
       // Backend is down — go to onboarding
@@ -63,8 +64,11 @@ export default function Index() {
 
   if (!checked) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }}>
+      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center", gap: 14 }}>
         <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ fontSize: 13, color: colors.textSecondary, letterSpacing: 0.5 }}>
+          Loading your profile…
+        </Text>
       </View>
     );
   }

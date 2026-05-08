@@ -1,5 +1,17 @@
 /**
- * Home dashboard with summary metrics, a honeycomb launcher, and the GlucoBot dock.
+ * Home — single-scroll Today stack.
+ *
+ * Information architecture:
+ *   1. Greeting + Lens Score hero (composite 0–100 dial)
+ *   2. Pending check-in (Scan → Glucose loop) — only when due
+ *   3. GlucoBot mentor card (one daily observation)
+ *   4. Health metrics (estimated A1c + Time in Range)
+ *   5. Today's meals strip
+ *   6. Quick actions row (Water · Weight · Walk)
+ *   7. Weekly review prompt (Sunday or on demand)
+ *
+ * No tile launcher. Anything secondary (planner, scan, coach, profile) is in
+ * the bottom tabs; everything else is reachable from the cards on this page.
  */
 
 import {
@@ -10,265 +22,465 @@ import {
   RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { useState, useCallback } from "react";
-import Svg, { Polygon } from "react-native-svg";
+import { useRouter, useFocusEffect, type Href } from "expo-router";
+import { useState, useCallback, useMemo } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trpc } from "@/lib/trpc";
 import { useProfileStore } from "@/stores/profileStore";
-import { colors, radius, fonts } from "@/constants/tokens";
-import { GlucoBotDock } from "@/components/GlucoBotDock";
+import { usePendingChecksStore } from "@/stores/pendingChecksStore";
 import {
-  CalendarDays,
-  Camera,
-  BookOpen,
-  LineChart,
-  FileText,
-  TrendingUp,
+  colors,
+  radius,
+  TAB_BAR_HEIGHT,
+  TAB_BAR_TOP_GAP,
+} from "@/constants/tokens";
+import {
   Droplets,
-  UtensilsCrossed,
+  Scale,
+  Footprints,
+  CalendarRange,
+  ChevronRight,
   Flame,
   type LucideIcon,
 } from "lucide-react-native";
 import { format } from "date-fns";
+import { LensScoreHero } from "@/components/health/LensScoreHero";
+import { MentorCard } from "@/components/health/MentorCard";
+import { PendingCheckCard } from "@/components/health/PendingCheckCard";
+import { HealthMetricsCard } from "@/components/health/HealthMetricsCard";
+import { lensScore, mgFromMmol, timeInRange } from "@/lib/health/metrics";
+import { generateMentorMessage } from "@/lib/health/mentor";
+import { syncStepsToday } from "@/lib/health/sync";
 
-// Greeting helpers
+const WATER_STORAGE_KEY = "@glucolens/water";
+const STEPS_STORAGE_KEY = "@glucolens/steps-today";
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 function getGreeting(): string {
   const h = new Date().getHours();
-  if (h < 12) return "Morning";
-  if (h < 17) return "Afternoon";
-  return "Evening";
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
 }
 
-// Macro row
+function todayKey(): string { return new Date().toISOString().slice(0, 10); }
 
-interface MacroRowProps {
-  label: string;
-  value: number;
-  max: number;
-  unit: string;
-  warn?: boolean;
+// ─── Today meals strip ──────────────────────────────────────────────────────
+
+interface MealLogItem {
+  id: number;
+  mealName: string | null;
+  totalCarbs: number | null;
+  ratingType2: string | null;
+  loggedAt: string;
 }
 
-function MacroRow({ label, value, max, unit, warn = false }: MacroRowProps) {
-  const pct = Math.min(Math.round((value / Math.max(max, 1)) * 100), 100);
-  const remaining = Math.max(max - value, 0);
-  const fillColor = warn ? colors.moderate : colors.primary;
+function MealsStrip({ logs }: { logs: MealLogItem[] | undefined }) {
+  const router = useRouter();
+  const items = (logs ?? []).slice(0, 4);
 
   return (
-    <View style={{ marginBottom: 14 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.textPrimary }}>{label}</Text>
-        <Text style={{ fontSize: 12, fontWeight: "700", color: colors.textSecondary }}>
-          {pct}%
-          <Text style={{ fontWeight: "400", color: colors.textMuted }}>
-            {"  - "}
-            {value.toLocaleString()} / {max.toLocaleString()}{unit === "kcal" ? "" : unit}
-          </Text>
+    <View
+      style={{
+        backgroundColor: colors.card,
+        borderRadius: radius.xl,
+        borderWidth: 1,
+        borderColor: colors.border,
+        padding: 16,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: "700",
+            color: colors.textMuted,
+            letterSpacing: 1.1,
+            textTransform: "uppercase",
+            flex: 1,
+          }}
+        >
+          Today's meals
         </Text>
+        <Pressable onPress={() => router.push("/food-log")}>
+          <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>
+            See all
+          </Text>
+        </Pressable>
       </View>
-      <View style={{
-        height: 6,
-        backgroundColor: "rgba(255,255,255,0.06)",
-        borderRadius: 3,
-        overflow: "hidden",
-      }}>
-        <View style={{
-          width: `${pct}%`,
-          height: "100%",
-          backgroundColor: fillColor,
-          borderRadius: 3,
-        }} />
-      </View>
-      <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>
-        {remaining.toLocaleString()}{unit === "kcal" ? " kcal" : unit} remaining
-      </Text>
+
+      {items.length === 0 ? (
+        <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
+          No meals logged yet today. Tap the camera in the tab bar to scan one.
+        </Text>
+      ) : (
+        items.map((m, idx) => {
+          const tone =
+            m.ratingType2 === "safe" ? colors.safe :
+            m.ratingType2 === "moderate" ? colors.moderate :
+            m.ratingType2 === "risky" ? colors.risky : colors.textMuted;
+          return (
+            <View
+              key={m.id}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingVertical: 10,
+                borderTopWidth: idx === 0 ? 0 : 1,
+                borderTopColor: colors.border,
+                gap: 12,
+              }}
+            >
+              <View
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: tone,
+                }}
+              />
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{ fontSize: 14, fontWeight: "700", color: colors.textPrimary }}
+                  numberOfLines={1}
+                >
+                  {m.mealName ?? "Meal"}
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 1 }}>
+                  {format(new Date(m.loggedAt), "h:mm a")}
+                  {m.totalCarbs != null ? ` · ${Math.round(m.totalCarbs)}g carbs` : ""}
+                </Text>
+              </View>
+            </View>
+          );
+        })
+      )}
     </View>
   );
 }
 
-// Launcher tile
+// ─── Quick action row ───────────────────────────────────────────────────────
 
-interface TileProps {
+function QuickAction({
+  icon: Icon,
+  label,
+  value,
+  href,
+}: {
   icon: LucideIcon;
   label: string;
-  onPress: () => void;
-}
-
-function Tile({ icon: Icon, label, onPress }: TileProps) {
+  value?: string;
+  href: Href;
+}) {
+  const router = useRouter();
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => router.push(href)}
       style={({ pressed }) => ({
-        width: "31.5%",
-        height: 112,
+        flex: 1,
+        backgroundColor: colors.card,
+        borderRadius: radius.lg,
+        borderWidth: 1,
+        borderColor: colors.border,
+        paddingVertical: 12,
+        paddingHorizontal: 10,
         alignItems: "center",
-        justifyContent: "center",
-        opacity: pressed ? 0.75 : 1,
+        opacity: pressed ? 0.9 : 1,
       })}
     >
-      <Svg
-        viewBox="0 0 100 112"
-        preserveAspectRatio="none"
-        style={{ position: "absolute", width: "100%", height: "100%" }}
-      >
-        <Polygon
-          points="50,2 94,27 94,85 50,110 6,85 6,27"
-          fill={colors.card}
-          stroke={colors.border}
-          strokeWidth="1.4"
-        />
-      </Svg>
-      <View style={{ alignItems: "center", justifyContent: "center", paddingHorizontal: 10 }}>
-        <View style={{
-          width: 38, height: 38, borderRadius: 13,
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 12,
           backgroundColor: colors.primaryLight,
-          alignItems: "center", justifyContent: "center",
-          marginBottom: 6,
-        }}>
-          <Icon size={20} color={colors.primary} strokeWidth={1.9} />
-        </View>
-        <Text style={{
-          fontSize: 12,
-          fontWeight: "800",
-          color: colors.textPrimary,
-          textAlign: "center",
-          lineHeight: 14,
-        }} numberOfLines={2}>
-          {label}
-        </Text>
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 8,
+        }}
+      >
+        <Icon size={17} color={colors.primary} strokeWidth={2.2} />
       </View>
+      <Text style={{ fontSize: 11, fontWeight: "700", color: colors.textPrimary }}>
+        {label}
+      </Text>
+      {value && (
+        <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 2 }}>{value}</Text>
+      )}
     </Pressable>
   );
 }
 
-// Main screen
+// ─── Weekly review prompt ───────────────────────────────────────────────────
 
-export default function DashboardScreen() {
-  const insets = useSafeAreaInsets();
+function WeeklyReviewPrompt() {
   const router = useRouter();
-  const profile = useProfileStore((s) => s.profile);
-  const [refreshing, setRefreshing] = useState(false);
-  const [waterCups] = useState(4); // local-only placeholder (cups out of 8)
-  const [streakDays] = useState(12); // local-only placeholder
-
-  // Try the API, but fall back to local / defaults if the backend is dead.
-  const { data: todayLogs, refetch } = trpc.food.list.useQuery(
-    { from: new Date().setHours(0, 0, 0, 0).toString(), to: new Date().toISOString(), limit: 20 },
-    { retry: false, enabled: false }, // keep disabled for now — backend URL is offline
+  return (
+    <Pressable
+      onPress={() => router.push("/weekly-review")}
+      style={({ pressed }) => ({
+        backgroundColor: colors.cardAlt,
+        borderRadius: radius.xl,
+        borderWidth: 1,
+        borderColor: colors.border,
+        padding: 16,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        opacity: pressed ? 0.92 : 1,
+      })}
+    >
+      <View
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          backgroundColor: colors.accent3,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <CalendarRange size={18} color={colors.accent2} strokeWidth={2.2} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 14, fontWeight: "800", color: colors.textPrimary }}>
+          Your weekly review
+        </Text>
+        <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 1 }}>
+          Last 7 days at a glance — wins, patterns, and one thing to try.
+        </Text>
+      </View>
+      <ChevronRight size={16} color={colors.textMuted} />
+    </Pressable>
   );
+}
+
+// ─── Main screen ────────────────────────────────────────────────────────────
+
+export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
+  const profile = useProfileStore((s) => s.profile);
+  const profileHydrated = useProfileStore((s) => s.hydrated);
+  const pendingChecks = usePendingChecksStore((s) => s.checks);
+  const nextDuePending = usePendingChecksStore((s) => s.nextDue());
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [waterCups, setWaterCups] = useState(0);
+  const [stepsToday, setStepsToday] = useState<number | null>(null);
+
+  const queryEnabled = profileHydrated && !!profile && !!API_URL;
+
+  // Today's meals (range query)
+  const startOfDay = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime().toString();
+  }, []);
+  const todayMealsQuery = trpc.food.list.useQuery(
+    { from: startOfDay, to: new Date().toISOString(), limit: 20 },
+    { retry: false, enabled: queryEnabled },
+  );
+
+  // Trailing 14 days of glucose for TIR / mentor
+  const glucoseQuery = trpc.glucose.list.useQuery(
+    { limit: 200 },
+    { retry: false, enabled: queryEnabled, staleTime: 1000 * 60 * 5 },
+  );
+
+  const loadLocal = useCallback(async () => {
+    // Water
+    try {
+      const raw = await AsyncStorage.getItem(WATER_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { date: string; cups: number };
+        setWaterCups(parsed.date === todayKey() ? parsed.cups : 0);
+      } else {
+        setWaterCups(0);
+      }
+    } catch { setWaterCups(0); }
+
+    // Steps — best-effort, opportunistic Health sync, falls back to cached
+    try {
+      const fresh = await syncStepsToday();
+      if (fresh != null) {
+        setStepsToday(fresh);
+        await AsyncStorage.setItem(STEPS_STORAGE_KEY, JSON.stringify({ date: todayKey(), steps: fresh }));
+      } else {
+        const cached = await AsyncStorage.getItem(STEPS_STORAGE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached) as { date: string; steps: number };
+          setStepsToday(parsed.date === todayKey() ? parsed.steps : null);
+        }
+      }
+    } catch {
+      setStepsToday(null);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => { loadLocal(); }, [loadLocal]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    try { await refetch(); } catch {}
-    setTimeout(() => setRefreshing(false), 500);
-  }, [refetch]);
+    try {
+      await Promise.all([
+        loadLocal(),
+        queryEnabled ? todayMealsQuery.refetch() : Promise.resolve(),
+        queryEnabled ? glucoseQuery.refetch() : Promise.resolve(),
+      ]);
+    } catch { /* best-effort */ }
+    setTimeout(() => setRefreshing(false), 400);
+  }, [loadLocal, queryEnabled, todayMealsQuery, glucoseQuery]);
 
-  // Totals — real when we have logs, zero when offline/empty.
-  const totalCalories = todayLogs?.reduce((s, m) => s + (m.calories ?? 0), 0) ?? 0;
-  const totalCarbs    = todayLogs?.reduce((s, m) => s + (m.totalCarbs ?? 0), 0) ?? 0;
-  const totalSugar    = todayLogs?.reduce((s, m) => s + (m.totalSugar ?? 0), 0) ?? 0;
+  // ── Derived metrics ──
+  const todayCarbs = useMemo(() => {
+    return (todayMealsQuery.data ?? []).reduce((s, m) => s + (m.totalCarbs ?? 0), 0);
+  }, [todayMealsQuery.data]);
 
-  // Goals come from the profile store (onboarding seed) or fall back to sane defaults.
-  const maxCalories = profile?.dailyCalorieGoal ?? 2100;
-  const maxCarbs    = profile?.maxDailyCarbs    ?? 180;
-  const maxSugar    = profile?.maxDailySugar    ?? 45;
+  const tir = useMemo(() => {
+    const readings = (glucoseQuery.data ?? []).map((r) => ({
+      value_mgdl: mgFromMmol(r.valueMmol),
+      takenAt: new Date(r.loggedAt).getTime(),
+    }));
+    return timeInRange(readings, 14);
+  }, [glucoseQuery.data]);
 
-  const firstName = profile?.firstName ?? "there";
-  const initial = firstName.charAt(0).toUpperCase();
+  const score = useMemo(
+    () =>
+      lensScore({
+        tirPct: tir.readingCount > 0 ? tir.inRangePct : undefined,
+        carbsToday_g: todayCarbs,
+        carbMaxToday_g: profile?.maxDailyCarbs ?? 200,
+        stepsToday: stepsToday ?? undefined,
+        stepGoal: 7500,
+      }),
+    [tir, todayCarbs, profile?.maxDailyCarbs, stepsToday],
+  );
+
+  const streakDays = useMemo(() => {
+    // Simple proxy: count consecutive days with at least one glucose reading,
+    // walking back from today. Tops out at 60 days for performance.
+    const days = new Set<string>();
+    (glucoseQuery.data ?? []).forEach((r) => {
+      days.add(new Date(r.loggedAt).toISOString().slice(0, 10));
+    });
+    let count = 0;
+    for (let i = 0; i < 60; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const k = d.toISOString().slice(0, 10);
+      if (days.has(k)) count++;
+      else if (i === 0) continue; // today not yet logged is fine
+      else break;
+    }
+    return count;
+  }, [glucoseQuery.data]);
+
+  const mentorMessage = useMemo(() => {
+    return generateMentorMessage({
+      firstName: profile?.firstName,
+      score,
+      tir,
+      readings: (glucoseQuery.data ?? []).map((r) => ({
+        value_mgdl: mgFromMmol(r.valueMmol),
+        takenAt: new Date(r.loggedAt).getTime(),
+      })),
+      streakDays,
+      carbsToday_g: todayCarbs,
+      carbMaxToday_g: profile?.maxDailyCarbs ?? undefined,
+      waterCups,
+      hasRecentMeal: (todayMealsQuery.data ?? []).length > 0,
+    });
+  }, [profile, score, tir, glucoseQuery.data, streakDays, todayCarbs, waterCups, todayMealsQuery.data]);
+
   const dateLabel = format(new Date(), "EEEE, d MMMM");
-  const caloriesLeft = Math.max(maxCalories - totalCalories, 0);
+  const firstName = profile?.firstName ?? "there";
+  const greeting = `${getGreeting()}, ${firstName}`;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + 176, paddingHorizontal: 20, paddingTop: insets.top + 12 }}
+        contentContainerStyle={{
+          paddingTop: insets.top + 8,
+          paddingBottom: insets.bottom + TAB_BAR_HEIGHT + TAB_BAR_TOP_GAP + 24,
+          paddingHorizontal: 18,
+          gap: 14,
+        }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Brand header */}
-        <Text style={{
-          fontSize: 15, fontWeight: "700", letterSpacing: 0.6,
-          textAlign: "center", color: colors.textPrimary, marginBottom: 16,
-        }}>
-          Gluco<Text style={{ color: colors.primary }}>Lens</Text>
-        </Text>
-
-        {/* Greeting, streak, and avatar */}
-        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
-              <Text style={{ fontSize: 12, color: colors.textMuted }}>{dateLabel}</Text>
-              <Text style={{ fontSize: 12, color: colors.textMuted }}>·</Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                <Flame size={12} color={colors.primary} strokeWidth={2.25} />
-                <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "700" }}>
-                  {streakDays}-day streak
-                </Text>
-              </View>
-            </View>
-            <Text style={{
-              fontFamily: fonts.serifBold,
-              fontSize: 24,
-              color: colors.textPrimary,
-              letterSpacing: -0.3,
-            }}>
-              {getGreeting()}, {firstName}.
-            </Text>
-          </View>
-          <View style={{
-            width: 44, height: 44, borderRadius: 22,
-            backgroundColor: colors.primaryLight,
-            borderWidth: 1, borderColor: colors.glassBorder,
-            alignItems: "center", justifyContent: "center",
-          }}>
-            <Text style={{ fontSize: 17, fontWeight: "700", color: colors.primary }}>{initial}</Text>
-          </View>
-        </View>
-
-        {/* Macro panel */}
-        <View style={{
-          backgroundColor: colors.card,
-          borderRadius: radius.xl,
-          borderWidth: 1, borderColor: colors.border,
-          padding: 18, marginBottom: 16,
-        }}>
-          <Text style={{
-            fontSize: 11,
-            fontWeight: "700",
-            letterSpacing: 1.2,
-            color: colors.textMuted,
-            textTransform: "uppercase",
-            marginBottom: 14,
-          }}>
-            Today · {caloriesLeft.toLocaleString()} kcal left
+        {/* Top meta row */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: 4,
+            paddingTop: 6,
+            paddingBottom: 4,
+          }}
+        >
+          <Text style={{ fontSize: 12, color: colors.textMuted, flex: 1 }}>
+            {dateLabel}
           </Text>
-          <MacroRow label="Calories" value={totalCalories} max={maxCalories} unit="kcal" />
-          <MacroRow label="Carbs"    value={totalCarbs}    max={maxCarbs}    unit="g" />
-          <MacroRow label="Sugar"    value={totalSugar}    max={maxSugar}    unit="g" warn />
+          {streakDays > 0 && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <Flame size={12} color={colors.accent2} strokeWidth={2.4} />
+              <Text style={{ fontSize: 12, color: colors.accent2, fontWeight: "700" }}>
+                {streakDays}-day streak
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* Honeycomb launcher */}
-        <View style={{ marginBottom: 18 }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <Tile icon={CalendarDays} label="Planner" onPress={() => router.push("/(tabs)/planner")} />
-            <Tile icon={Camera} label="Scan" onPress={() => router.push("/(tabs)/scan")} />
-            <Tile icon={BookOpen} label="Guide" onPress={() => router.push("/(tabs)/reminders")} />
-          </View>
-          <View style={{ flexDirection: "row", justifyContent: "center", gap: 8, marginTop: -28 }}>
-            <Tile icon={LineChart} label="Glucose" onPress={() => router.push("/(tabs)/glucose")} />
-            <Tile icon={FileText} label="Diary" onPress={() => router.push("/food-log" as any)} />
-          </View>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: -28 }}>
-            <Tile icon={TrendingUp} label="Progress" onPress={() => router.push("/progress" as any)} />
-            <Tile icon={Droplets} label={`Water ${waterCups}/8`} onPress={() => router.push("/water" as any)} />
-            <Tile icon={UtensilsCrossed} label="Foods" onPress={() => router.push("/foods" as any)} />
-          </View>
+        {/* 1) Lens Score hero */}
+        <LensScoreHero score={score} greeting={greeting} />
+
+        {/* 2) Pending check-in (only when one is due) */}
+        {nextDuePending && <PendingCheckCard check={nextDuePending} />}
+
+        {/* 3) Mentor card */}
+        <MentorCard message={mentorMessage} />
+
+        {/* 4) A1c + TIR */}
+        <HealthMetricsCard />
+
+        {/* 5) Today's meals */}
+        <MealsStrip logs={todayMealsQuery.data as MealLogItem[] | undefined} />
+
+        {/* 6) Quick actions */}
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <QuickAction icon={Droplets} label="Water" value={`${waterCups}/8`} href="/water" />
+          <QuickAction icon={Scale} label="Weight" value="Log" href="/health-log" />
+          <QuickAction
+            icon={Footprints}
+            label="Steps"
+            value={stepsToday != null ? `${stepsToday.toLocaleString()}` : "Sync"}
+            href="/health-log"
+          />
         </View>
+
+        {/* 7) Weekly review */}
+        <WeeklyReviewPrompt />
+
+        {/* Resolved-checks summary footer */}
+        {pendingChecks.some((c) => c.resolved) && (
+          <Text
+            style={{
+              fontSize: 11,
+              color: colors.textMuted,
+              textAlign: "center",
+              marginTop: 6,
+            }}
+          >
+            {pendingChecks.filter((c) => c.resolved).length} meal checks completed this week
+          </Text>
+        )}
       </ScrollView>
-      <GlucoBotDock bottomOffset={insets.bottom + 86} />
     </View>
   );
 }

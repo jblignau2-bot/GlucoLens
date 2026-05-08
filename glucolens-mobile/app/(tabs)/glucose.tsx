@@ -25,7 +25,8 @@ import {
   Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useLocalSearchParams } from "expo-router";
 import { trpc } from "@/lib/trpc";
 import { colors, radius, shadow } from "@/constants/tokens";
 import { LineChart } from "react-native-chart-kit";
@@ -33,6 +34,11 @@ import { Dimensions } from "react-native";
 import { Plus, Droplets, Scale, TrendingDown, TrendingUp, Minus, Trash2 } from "lucide-react-native";
 import { format } from "date-fns";
 import * as Haptics from "expo-haptics";
+import Toast from "react-native-toast-message";
+import { HealthMetricsCard } from "@/components/health/HealthMetricsCard";
+import { usePendingChecksStore } from "@/stores/pendingChecksStore";
+import { cancelFollowUp } from "@/lib/health/notifications";
+import { mgFromMmol, postMealStoplight } from "@/lib/health/metrics";
 
 const SCREEN_W = Dimensions.get("window").width;
 const CHART_W = SCREEN_W - 40;
@@ -557,6 +563,11 @@ function AddWeightModal({ visible, onClose, onSave }: {
 
 export default function GlucoseScreen() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ pendingCheckId?: string }>();
+  const pendingChecks = usePendingChecksStore((s) => s.checks);
+  const resolvePending = usePendingChecksStore((s) => s.resolve);
+  const removePending = usePendingChecksStore((s) => s.remove);
+
   const [tracker, setTracker] = useState<Tracker>("glucose");
   const [addGlucoseOpen, setAddGlucoseOpen] = useState(false);
   const [addWeightOpen, setAddWeightOpen] = useState(false);
@@ -567,8 +578,44 @@ export default function GlucoseScreen() {
   const { data: weightLogs, refetch: refetchWeight, isLoading: weightLoading } =
     trpc.weight.list.useQuery({ limit: 30 });
 
+  // If we arrived from a pending-check tap, auto-open the log modal so the
+  // user can record the glucose reading with one fewer tap.
+  const incomingPendingCheckId = typeof params.pendingCheckId === "string" ? params.pendingCheckId : undefined;
+  useEffect(() => {
+    if (incomingPendingCheckId && pendingChecks.some((c) => c.id === incomingPendingCheckId && !c.resolved)) {
+      setTracker("glucose");
+      setAddGlucoseOpen(true);
+    }
+  }, [incomingPendingCheckId, pendingChecks]);
+
   const addGlucoseMutation = trpc.glucose.add.useMutation({
-    onSuccess: () => { refetchGlucose(); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); },
+    onSuccess: async (created) => {
+      refetchGlucose();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // If a pending check is awaiting a reading, resolve it with a stoplight.
+      const target =
+        incomingPendingCheckId
+          ? pendingChecks.find((c) => c.id === incomingPendingCheckId && !c.resolved)
+          : pendingChecks.find((c) => !c.resolved && c.followUpAt <= Date.now());
+      if (target) {
+        const value_mgdl = mgFromMmol((created as { valueMmol?: number } | undefined)?.valueMmol ?? 0);
+        const badge = postMealStoplight(value_mgdl);
+        await resolvePending(target.id, value_mgdl, badge);
+        if (target.notificationId) await cancelFollowUp(target.notificationId);
+        // Auto-clean the resolved check after we've shown the result toast.
+        Toast.show({
+          type: badge === "green" ? "success" : badge === "amber" ? "info" : "error",
+          text1:
+            badge === "green" ? "Solid landing" :
+            badge === "amber" ? "Mild post-meal climb" :
+            "Big spike — let's investigate",
+          text2: `"${target.mealName}" graded ${badge}.`,
+          position: "bottom",
+          visibilityTime: 2400,
+        });
+        setTimeout(() => removePending(target.id).catch(() => {}), 60_000);
+      }
+    },
     onError: (e) => Alert.alert("Error", e.message),
   });
 
@@ -670,6 +717,11 @@ export default function GlucoseScreen() {
       >
         {tracker === "glucose" ? (
           <>
+            {/* A1c + Time-in-Range hero */}
+            <View style={{ marginBottom: 14 }}>
+              <HealthMetricsCard />
+            </View>
+
             {/* Stats row */}
             <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
               <StatTile

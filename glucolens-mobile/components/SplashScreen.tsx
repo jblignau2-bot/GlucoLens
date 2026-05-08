@@ -9,8 +9,9 @@ import {
 import Svg, { Circle, Path, Defs, Pattern, Rect } from "react-native-svg";
 import { useEffect, useRef } from "react";
 
-const TEAL = "#3DA39B";
-const CYAN = "#14b8a6";
+// Splash mirrors the new warm-clinical theme: cream background, coral mark.
+const BACKGROUND = "#FFFBF7";
+const PRIMARY = "#F26B5B";
 const WIDTH = Dimensions.get("window").width;
 const HEIGHT = Dimensions.get("window").height;
 
@@ -78,7 +79,7 @@ export function SplashScreen({ onFinish }: Props) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={TEAL} />
+      <StatusBar barStyle="dark-content" backgroundColor={BACKGROUND} />
 
       {/* Honeycomb pattern SVG background */}
       <View style={StyleSheet.absoluteFill}>
@@ -94,12 +95,12 @@ export function SplashScreen({ onFinish }: Props) {
               <Path
                 d="M30,0 L60,15 L60,45 L30,60 L0,45 L0,15 Z"
                 fill="none"
-                stroke="rgba(255,255,255,0.15)"
+                stroke="rgba(242,107,91,0.10)"
                 strokeWidth="1"
               />
             </Pattern>
           </Defs>
-          <Rect width={WIDTH} height={HEIGHT} fill={TEAL} />
+          <Rect width={WIDTH} height={HEIGHT} fill={BACKGROUND} />
           <Rect width={WIDTH} height={HEIGHT} fill="url(#honeycomb)" />
         </Svg>
       </View>
@@ -119,13 +120,12 @@ export function SplashScreen({ onFinish }: Props) {
           }}
         >
           <Svg width={80} height={80} viewBox="0 0 40 40">
-            {/* Eye-like lens logo */}
             <Circle
               cx="20"
               cy="20"
               r="19"
-              fill="rgba(255,255,255,0.1)"
-              stroke="white"
+              fill="rgba(242,107,91,0.10)"
+              stroke={PRIMARY}
               strokeWidth="2"
             />
             <Circle
@@ -133,13 +133,13 @@ export function SplashScreen({ onFinish }: Props) {
               cy="20"
               r="13.5"
               fill="none"
-              stroke="white"
+              stroke={PRIMARY}
               strokeWidth="1.5"
-              strokeOpacity="0.6"
+              strokeOpacity="0.45"
             />
-            <Circle cx="20" cy="20" r="9.5" fill="white" />
-            <Circle cx="20" cy="20" r="5.5" fill={CYAN} />
-            <Circle cx="20" cy="20" r="2.5" fill={TEAL} />
+            <Circle cx="20" cy="20" r="9.5" fill={PRIMARY} />
+            <Circle cx="20" cy="20" r="5.5" fill={BACKGROUND} />
+            <Circle cx="20" cy="20" r="2.5" fill={PRIMARY} />
           </Svg>
         </Animated.View>
 
@@ -171,10 +171,10 @@ export function SplashScreen({ onFinish }: Props) {
                 top: -2,
                 width: 14,
                 height: 14,
-                backgroundColor: CYAN,
+                backgroundColor: PRIMARY,
                 transform: [{ rotate: "45deg" }],
                 borderRadius: 1,
-                shadowColor: CYAN,
+                shadowColor: PRIMARY,
                 shadowOffset: { width: 0, height: 0 },
                 shadowOpacity: 0.6,
                 shadowRadius: 8,
@@ -191,7 +191,7 @@ export function SplashScreen({ onFinish }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: TEAL,
+    backgroundColor: BACKGROUND,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -202,13 +202,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 48,
     fontWeight: "900",
-    color: "white",
+    color: "#2A1F18",
     letterSpacing: -1,
   },
   subtitle: {
     fontSize: 12,
     fontWeight: "600",
-    color: "rgba(255,255,255,0.7)",
+    color: "rgba(42,31,24,0.55)",
     letterSpacing: 2,
     textTransform: "uppercase",
   },
@@ -221,15 +221,15 @@ const styles = StyleSheet.create({
   progressTrack: {
     width: "100%",
     height: 6,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(242,107,91,0.10)",
     borderRadius: 3,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+    borderColor: "rgba(242,107,91,0.18)",
   },
   progressFill: {
     height: "100%",
-    backgroundColor: CYAN,
+    backgroundColor: PRIMARY,
     borderRadius: 3,
   },
 });

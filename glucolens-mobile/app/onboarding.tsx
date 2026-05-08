@@ -8,7 +8,12 @@ import { useState, useMemo, useRef } from "react";
 import Toast from "react-native-toast-message";
 import { CameraLensLogo } from "@/components/ui/GlucoLensLogo";
 import { trpc } from "@/lib/trpc";
-import { useProfileStore } from "@/stores/profileStore";
+import {
+  useProfileStore,
+  type UserProfile,
+  type DiabetesType,
+  type ActivityLevel,
+} from "@/stores/profileStore";
 import { colors, radius } from "@/constants/tokens";
 import {
   User, Globe, HeartPulse, Target, CheckCircle, Syringe, Activity,
@@ -73,55 +78,79 @@ function calcGoals(
 }
 
 // ─── Countries ──────────────────────────────────────────────────────────────
-const COUNTRIES = [
-  { name: "Afghanistan", code: "AF", flag: "\u{1F1E6}\u{1F1EB}" },
-  { name: "Australia", code: "AU", flag: "\u{1F1E6}\u{1F1FA}" },
-  { name: "Brazil", code: "BR", flag: "\u{1F1E7}\u{1F1F7}" },
-  { name: "Canada", code: "CA", flag: "\u{1F1E8}\u{1F1E6}" },
-  { name: "China", code: "CN", flag: "\u{1F1E8}\u{1F1F3}" },
-  { name: "Egypt", code: "EG", flag: "\u{1F1EA}\u{1F1EC}" },
-  { name: "Ethiopia", code: "ET", flag: "\u{1F1EA}\u{1F1F9}" },
-  { name: "France", code: "FR", flag: "\u{1F1EB}\u{1F1F7}" },
-  { name: "Germany", code: "DE", flag: "\u{1F1E9}\u{1F1EA}" },
-  { name: "Ghana", code: "GH", flag: "\u{1F1EC}\u{1F1ED}" },
-  { name: "India", code: "IN", flag: "\u{1F1EE}\u{1F1F3}" },
-  { name: "Indonesia", code: "ID", flag: "\u{1F1EE}\u{1F1E9}" },
-  { name: "Iran", code: "IR", flag: "\u{1F1EE}\u{1F1F7}" },
-  { name: "Italy", code: "IT", flag: "\u{1F1EE}\u{1F1F9}" },
-  { name: "Japan", code: "JP", flag: "\u{1F1EF}\u{1F1F5}" },
-  { name: "Kenya", code: "KE", flag: "\u{1F1F0}\u{1F1EA}" },
-  { name: "Malaysia", code: "MY", flag: "\u{1F1F2}\u{1F1FE}" },
-  { name: "Mexico", code: "MX", flag: "\u{1F1F2}\u{1F1FD}" },
-  { name: "Morocco", code: "MA", flag: "\u{1F1F2}\u{1F1E6}" },
-  { name: "Mozambique", code: "MZ", flag: "\u{1F1F2}\u{1F1FF}" },
-  { name: "Netherlands", code: "NL", flag: "\u{1F1F3}\u{1F1F1}" },
-  { name: "New Zealand", code: "NZ", flag: "\u{1F1F3}\u{1F1FF}" },
-  { name: "Nigeria", code: "NG", flag: "\u{1F1F3}\u{1F1EC}" },
-  { name: "Pakistan", code: "PK", flag: "\u{1F1F5}\u{1F1F0}" },
-  { name: "Philippines", code: "PH", flag: "\u{1F1F5}\u{1F1ED}" },
-  { name: "Poland", code: "PL", flag: "\u{1F1F5}\u{1F1F1}" },
-  { name: "Portugal", code: "PT", flag: "\u{1F1F5}\u{1F1F9}" },
-  { name: "Russia", code: "RU", flag: "\u{1F1F7}\u{1F1FA}" },
-  { name: "Saudi Arabia", code: "SA", flag: "\u{1F1F8}\u{1F1E6}" },
-  { name: "Senegal", code: "SN", flag: "\u{1F1F8}\u{1F1F3}" },
-  { name: "Singapore", code: "SG", flag: "\u{1F1F8}\u{1F1EC}" },
-  { name: "South Africa", code: "ZA", flag: "\u{1F1FF}\u{1F1E6}" },
-  { name: "South Korea", code: "KR", flag: "\u{1F1F0}\u{1F1F7}" },
-  { name: "Spain", code: "ES", flag: "\u{1F1EA}\u{1F1F8}" },
-  { name: "Sri Lanka", code: "LK", flag: "\u{1F1F1}\u{1F1F0}" },
-  { name: "Sweden", code: "SE", flag: "\u{1F1F8}\u{1F1EA}" },
-  { name: "Tanzania", code: "TZ", flag: "\u{1F1F9}\u{1F1FF}" },
-  { name: "Thailand", code: "TH", flag: "\u{1F1F9}\u{1F1ED}" },
-  { name: "Turkey", code: "TR", flag: "\u{1F1F9}\u{1F1F7}" },
-  { name: "Uganda", code: "UG", flag: "\u{1F1FA}\u{1F1EC}" },
-  { name: "Ukraine", code: "UA", flag: "\u{1F1FA}\u{1F1E6}" },
-  { name: "United Arab Emirates", code: "AE", flag: "\u{1F1E6}\u{1F1EA}" },
-  { name: "United Kingdom", code: "GB", flag: "\u{1F1EC}\u{1F1E7}" },
-  { name: "United States", code: "US", flag: "\u{1F1FA}\u{1F1F8}" },
-  { name: "Vietnam", code: "VN", flag: "\u{1F1FB}\u{1F1F3}" },
-  { name: "Zambia", code: "ZM", flag: "\u{1F1FF}\u{1F1F2}" },
-  { name: "Zimbabwe", code: "ZW", flag: "\u{1F1FF}\u{1F1FC}" },
+// Stored without flag emoji to keep the UI text-only (per design language).
+// `code` doubles as the badge label rendered in the picker.
+interface Country { name: string; code: string }
+const COUNTRIES: Country[] = [
+  { name: "Afghanistan", code: "AF" },
+  { name: "Australia", code: "AU" },
+  { name: "Brazil", code: "BR" },
+  { name: "Canada", code: "CA" },
+  { name: "China", code: "CN" },
+  { name: "Egypt", code: "EG" },
+  { name: "Ethiopia", code: "ET" },
+  { name: "France", code: "FR" },
+  { name: "Germany", code: "DE" },
+  { name: "Ghana", code: "GH" },
+  { name: "India", code: "IN" },
+  { name: "Indonesia", code: "ID" },
+  { name: "Iran", code: "IR" },
+  { name: "Italy", code: "IT" },
+  { name: "Japan", code: "JP" },
+  { name: "Kenya", code: "KE" },
+  { name: "Malaysia", code: "MY" },
+  { name: "Mexico", code: "MX" },
+  { name: "Morocco", code: "MA" },
+  { name: "Mozambique", code: "MZ" },
+  { name: "Netherlands", code: "NL" },
+  { name: "New Zealand", code: "NZ" },
+  { name: "Nigeria", code: "NG" },
+  { name: "Pakistan", code: "PK" },
+  { name: "Philippines", code: "PH" },
+  { name: "Poland", code: "PL" },
+  { name: "Portugal", code: "PT" },
+  { name: "Russia", code: "RU" },
+  { name: "Saudi Arabia", code: "SA" },
+  { name: "Senegal", code: "SN" },
+  { name: "Singapore", code: "SG" },
+  { name: "South Africa", code: "ZA" },
+  { name: "South Korea", code: "KR" },
+  { name: "Spain", code: "ES" },
+  { name: "Sri Lanka", code: "LK" },
+  { name: "Sweden", code: "SE" },
+  { name: "Tanzania", code: "TZ" },
+  { name: "Thailand", code: "TH" },
+  { name: "Turkey", code: "TR" },
+  { name: "Uganda", code: "UG" },
+  { name: "Ukraine", code: "UA" },
+  { name: "United Arab Emirates", code: "AE" },
+  { name: "United Kingdom", code: "GB" },
+  { name: "United States", code: "US" },
+  { name: "Vietnam", code: "VN" },
+  { name: "Zambia", code: "ZM" },
+  { name: "Zimbabwe", code: "ZW" },
 ];
+
+/** Small inline badge that shows a country's ISO-3166 code in a pill. */
+function CountryCodeBadge({ code, size = "sm" }: { code: string; size?: "sm" | "lg" }) {
+  const dim = size === "lg" ? 40 : 28;
+  const fontSize = size === "lg" ? 14 : 11;
+  return (
+    <View style={{
+      width: dim, height: dim, borderRadius: 8,
+      backgroundColor: `${colors.primary}1A`,
+      borderWidth: 1, borderColor: colors.glassBorder,
+      alignItems: "center", justifyContent: "center",
+    }}>
+      <Text style={{
+        fontSize, fontWeight: "800", letterSpacing: 0.6,
+        color: colors.primary,
+      }}>
+        {code}
+      </Text>
+    </View>
+  );
+}
 
 // ─── Step config (icon-driven, no emojis) ────────────────────────────────────
 const STEPS = [
@@ -306,11 +335,13 @@ export default function Onboarding() {
   }
 
   async function handleFinish() {
-    const diabetesTypeToSend = form.diabetesType || "type2";
+    const diabetesTypeToSend: DiabetesType = form.diabetesType || "type2";
+    const gender = (form.gender || "other") as UserProfile["gender"];
+    const activityLevel: ActivityLevel = form.activityLevel;
 
     // Build the local profile object up front so we always have a valid record
     // to hand the rest of the app, even if the backend call fails or times out.
-    const localProfile = {
+    const localProfile: UserProfile = {
       id: 0,
       firstName: form.firstName,
       lastName: form.lastName,
@@ -320,9 +351,9 @@ export default function Onboarding() {
       heightCm: Number(form.heightCm),
       weightKg: Number(form.weightKg),
       age: Number(form.age),
-      gender: form.gender as any,
-      activityLevel: form.activityLevel as any,
-      diabetesType: diabetesTypeToSend as any,
+      gender,
+      activityLevel,
+      diabetesType: diabetesTypeToSend,
       dailyCalorieGoal: form.dailyCalorieGoal,
       maxDailySugar: form.maxDailySugar,
       maxDailyCarbs: form.maxDailyCarbs,
@@ -332,7 +363,7 @@ export default function Onboarding() {
     };
 
     // 1. Always save locally — this is the source of truth while the backend is offline.
-    setProfile(localProfile as any);
+    setProfile(localProfile);
 
     // 2. Try the backend as best-effort (silent on failure — user already saw their plan).
     try {
@@ -345,9 +376,9 @@ export default function Onboarding() {
         heightCm: Number(form.heightCm),
         weightKg: Number(form.weightKg),
         age: Number(form.age),
-        gender: form.gender as any,
-        activityLevel: form.activityLevel,
-        diabetesType: diabetesTypeToSend as any,
+        gender,
+        activityLevel,
+        diabetesType: diabetesTypeToSend,
         dailyCalorieGoal: form.dailyCalorieGoal,
         maxDailySugar: form.maxDailySugar,
         maxDailyCarbs: form.maxDailyCarbs,
@@ -357,11 +388,12 @@ export default function Onboarding() {
           ? `disclaimer_accepted:${disclaimerAcceptedAt}`
           : undefined,
         onboardingComplete: 1,
-      } as any);
-      if (savedData) setProfile(savedData as any);
-    } catch (e: any) {
+      });
+      if (savedData) setProfile(savedData as UserProfile);
+    } catch (e) {
       // Silent — backend may be offline, local profile is already persisted.
-      console.warn("Profile sync to backend deferred:", e?.message);
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn("Profile sync to backend deferred:", msg);
     }
 
     // 3. Regardless of backend outcome, continue into the app.
@@ -507,7 +539,7 @@ export default function Onboarding() {
                   <View>
                     <Text style={labelStyle}>YOUR COUNTRY *</Text>
                     <TextInput
-                      value={showCountries ? countrySearch : (form.countryFlag ? `${form.countryFlag}  ${form.country}` : "")}
+                      value={showCountries ? countrySearch : (form.country ? `${form.countryCode}  ${form.country}` : "")}
                       onChangeText={v => { setCountrySearch(v); setShowCountries(true); }}
                       onFocus={() => { setShowCountries(true); setCountrySearch(""); }}
                       placeholder="Search for your country..."
@@ -536,7 +568,7 @@ export default function Onboarding() {
                             onPress={() => {
                               update("country", c.name);
                               update("countryCode", c.code);
-                              update("countryFlag", c.flag);
+                              update("countryFlag", "");
                               setShowCountries(false);
                               setCountrySearch("");
                             }}
@@ -546,7 +578,7 @@ export default function Onboarding() {
                               backgroundColor: pressed ? `${colors.primary}10` : "transparent",
                             })}
                           >
-                            <Text style={{ fontSize: 22 }}>{c.flag}</Text>
+                            <CountryCodeBadge code={c.code} />
                             <Text style={{ fontSize: 14, color: colors.textPrimary, fontWeight: "500" }}>{c.name}</Text>
                           </Pressable>
                         ))}
@@ -561,7 +593,7 @@ export default function Onboarding() {
                       padding: 16,
                       flexDirection: "row", alignItems: "center", gap: 14,
                     }}>
-                      <Text style={{ fontSize: 36 }}>{form.countryFlag}</Text>
+                      <CountryCodeBadge code={form.countryCode} size="lg" />
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontWeight: "700", color: colors.textPrimary, fontSize: 15 }}>{form.country}</Text>
                         <Text style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 18, marginTop: 2 }}>

@@ -52,7 +52,7 @@ export function GlucoBotDock({ context, bottomOffset = 88 }: GlucoBotDockProps) 
             justifyContent: "center",
           }}
         >
-          <Sparkles size={17} color={colors.background} strokeWidth={2.4} />
+          <Sparkles size={17} color={colors.inkOnPrimary} strokeWidth={2.4} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 13, fontWeight: "800", color: colors.textPrimary }}>

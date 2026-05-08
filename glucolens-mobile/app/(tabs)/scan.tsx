@@ -27,7 +27,7 @@ import { useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { trpc } from "@/lib/trpc";
-import { useAnalysisStore } from "@/stores/analysisStore";
+import { useAnalysisStore, type AnalysisResult } from "@/stores/analysisStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { colors, radius, shadow } from "@/constants/tokens";
 import {
@@ -41,6 +41,9 @@ import {
   Check,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
+import Toast from "react-native-toast-message";
+import { usePendingChecksStore } from "@/stores/pendingChecksStore";
+import { scheduleFollowUp, FOLLOW_UP_MINUTES } from "@/lib/health/notifications";
 
 type Mode = "camera" | "barcode" | "text";
 
@@ -55,37 +58,45 @@ type Mode = "camera" | "barcode" | "text";
  *   { calories, totalSugar, totalCarbs, ratingType1, reasonType1, ... }
  *
  * This function handles BOTH formats so it's safe to call on already-flat data.
+ * The `unknown` input lets us accept either shape from tRPC without dragging
+ * typed inference all the way through.
  */
-function normaliseResult(raw: any) {
+function normaliseResult(raw: unknown): AnalysisResult {
+  const r = (raw ?? {}) as Record<string, unknown> & Partial<AnalysisResult>;
   // Already flat (e.g. from dashboard openMeal)
-  if (raw.calories !== undefined && raw.ratingType1 !== undefined) return raw;
+  if (r.calories !== undefined && r.ratingType1 !== undefined) {
+    return r as AnalysisResult;
+  }
 
-  const n = raw.nutrition ?? {};
-  const dr = raw.diabetesRating ?? {};
+  const n = (r.nutrition ?? {}) as Record<string, number | undefined>;
+  const dr = (r.diabetesRating ?? {}) as {
+    type1?: { rating?: AnalysisResult["ratingType1"]; reason?: string };
+    type2?: { rating?: AnalysisResult["ratingType2"]; reason?: string };
+  };
   return {
-    mealName: raw.mealName ?? "Unknown Meal",
-    identifiedFoods: raw.identifiedFoods ?? [],
-    imageUri: raw.imageUri,
-    imageUrl: raw.imageUrl,
-    itemBreakdown: raw.itemBreakdown ?? [],
+    mealName: (r.mealName as string) ?? "Unknown Meal",
+    identifiedFoods: (r.identifiedFoods as string[]) ?? [],
+    imageUri: r.imageUri as string | undefined,
+    imageUrl: r.imageUrl as string | undefined,
+    itemBreakdown: (r.itemBreakdown as AnalysisResult["itemBreakdown"]) ?? [],
     // Flattened nutrition
-    calories: n.calories ?? raw.calories ?? 0,
-    totalSugar: n.totalSugar_g ?? n.totalSugar ?? raw.totalSugar ?? 0,
-    totalCarbs: n.totalCarbs_g ?? n.totalCarbs ?? raw.totalCarbs ?? 0,
-    glycemicIndex: n.glycemicIndex ?? raw.glycemicIndex ?? 0,
-    glycemicLoad: n.glycemicLoad ?? raw.glycemicLoad ?? 0,
-    protein: n.protein_g ?? n.protein ?? raw.protein ?? 0,
-    fat: n.fat_g ?? n.fat ?? raw.fat ?? 0,
-    fiber: n.fiber_g ?? n.fiber ?? raw.fiber ?? 0,
+    calories: n.calories ?? r.calories ?? 0,
+    totalSugar: n.totalSugar_g ?? n.totalSugar ?? r.totalSugar ?? 0,
+    totalCarbs: n.totalCarbs_g ?? n.totalCarbs ?? r.totalCarbs ?? 0,
+    glycemicIndex: n.glycemicIndex ?? r.glycemicIndex ?? 0,
+    glycemicLoad: n.glycemicLoad ?? r.glycemicLoad ?? 0,
+    protein: n.protein_g ?? n.protein ?? r.protein ?? 0,
+    fat: n.fat_g ?? n.fat ?? r.fat ?? 0,
+    fiber: n.fiber_g ?? n.fiber ?? r.fiber ?? 0,
     // Flattened ratings
-    ratingType1: dr.type1?.rating ?? raw.ratingType1 ?? "moderate",
-    ratingType2: dr.type2?.rating ?? raw.ratingType2 ?? "moderate",
-    reasonType1: dr.type1?.reason ?? raw.reasonType1 ?? "",
-    reasonType2: dr.type2?.reason ?? raw.reasonType2 ?? "",
+    ratingType1: dr.type1?.rating ?? r.ratingType1 ?? "moderate",
+    ratingType2: dr.type2?.rating ?? r.ratingType2 ?? "moderate",
+    reasonType1: dr.type1?.reason ?? r.reasonType1 ?? "",
+    reasonType2: dr.type2?.reason ?? r.reasonType2 ?? "",
     // Pass-through arrays
-    whyRisky: raw.whyRisky ?? [],
-    healthierAlternatives: raw.healthierAlternatives ?? [],
-    foodsToAvoid: raw.foodsToAvoid ?? [],
+    whyRisky: (r.whyRisky as string[]) ?? [],
+    healthierAlternatives: (r.healthierAlternatives as AnalysisResult["healthierAlternatives"]) ?? [],
+    foodsToAvoid: (r.foodsToAvoid as string[]) ?? [],
   };
 }
 
@@ -475,10 +486,25 @@ export default function ScanScreen() {
   const [loading, setLoading] = useState(false);
   const setResult = useAnalysisStore((s) => s.setResult);
   const profile = useProfileStore((s) => s.profile);
+  const addPendingCheck = usePendingChecksStore((s) => s.add);
 
   const analyseFoodMutation = trpc.food.analyze.useMutation();
   const analyseTextMutation = trpc.food.analyzeText.useMutation();
   const barcodeAnalyseMutation = trpc.food.analyzeBarcode.useMutation();
+
+  /**
+   * Scan→Glucose loop: schedule a 90-minute follow-up so we can ask the user
+   * for a glucose reading and grade the meal green/amber/red.
+   * Best-effort — if notifications are denied or scheduling fails, the
+   * pending-check still lives in the store and surfaces on Home.
+   */
+  const armFollowUp = async (mealName: string) => {
+    const mealLoggedAt = Date.now();
+    const followUpAt = mealLoggedAt + FOLLOW_UP_MINUTES * 60 * 1000;
+    const id = `meal_${mealLoggedAt}_${Math.random().toString(36).slice(2, 8)}`;
+    const notificationId = (await scheduleFollowUp({ mealName, mealLoggedAt })) ?? undefined;
+    await addPendingCheck({ id, mealName, mealLoggedAt, followUpAt, notificationId });
+  };
 
   const safeHaptic = () => {
     try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
@@ -492,9 +518,13 @@ export default function ScanScreen() {
         country: profile?.country ?? "",
         diabetesType: profile?.diabetesType ?? "type2",
       });
-      const normalised = normaliseResult(raw ?? {});
-      setResult(normalised as any);
+      const normalised = normaliseResult(raw);
+      setResult(normalised);
       safeHaptic();
+      Toast.show({ type: "success", text1: "Meal analysed", text2: normalised.mealName, position: "bottom", visibilityTime: 1800 });
+      // Arm the 90-min Scan→Glucose follow-up. Fire-and-forget so the user
+      // navigates to results immediately without waiting on notifications.
+      armFollowUp(normalised.mealName).catch(() => {});
       router.push("/results");
     } catch (e: any) {
       console.warn("[scan] photo analysis error:", e);
@@ -512,9 +542,13 @@ export default function ScanScreen() {
         country: profile?.country ?? "",
         diabetesType: profile?.diabetesType ?? "type2",
       });
-      const normalised = normaliseResult(raw ?? {});
-      setResult(normalised as any);
+      const normalised = normaliseResult(raw);
+      setResult(normalised);
       safeHaptic();
+      Toast.show({ type: "success", text1: "Meal analysed", text2: normalised.mealName, position: "bottom", visibilityTime: 1800 });
+      // Arm the 90-min Scan→Glucose follow-up. Fire-and-forget so the user
+      // navigates to results immediately without waiting on notifications.
+      armFollowUp(normalised.mealName).catch(() => {});
       router.push("/results");
     } catch (e: any) {
       console.warn("[scan] text analysis error:", e);
@@ -532,9 +566,13 @@ export default function ScanScreen() {
         country: profile?.country ?? "",
         diabetesType: profile?.diabetesType ?? "type2",
       });
-      const normalised = normaliseResult(raw ?? {});
-      setResult(normalised as any);
+      const normalised = normaliseResult(raw);
+      setResult(normalised);
       safeHaptic();
+      Toast.show({ type: "success", text1: "Meal analysed", text2: normalised.mealName, position: "bottom", visibilityTime: 1800 });
+      // Arm the 90-min Scan→Glucose follow-up. Fire-and-forget so the user
+      // navigates to results immediately without waiting on notifications.
+      armFollowUp(normalised.mealName).catch(() => {});
       router.push("/results");
     } catch (e: any) {
       console.warn("[scan] barcode analysis error:", e);

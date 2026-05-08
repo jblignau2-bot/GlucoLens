@@ -22,8 +22,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
+import Toast from "react-native-toast-message";
 import { trpc } from "@/lib/trpc";
-import { useProfileStore } from "@/stores/profileStore";
+import { useProfileStore, type UserProfile } from "@/stores/profileStore";
 import { supabase } from "@/lib/supabase";
 import { colors, radius } from "@/constants/tokens";
 import {
@@ -120,7 +121,10 @@ function SettingsRow({
 
 // ─── Diabetes type picker ────────────────────────────────────────────────────
 
-const DIABETES_OPTIONS = [
+type DiabetesKey = "type1" | "type2" | "prediabetes" | "unsure" | "none";
+type ActivityKey = "sedentary" | "light" | "moderate" | "active" | "very_active";
+
+const DIABETES_OPTIONS: { key: DiabetesKey; label: string; desc: string }[] = [
   { key: "type1", label: "Type 1", desc: "Insulin-dependent" },
   { key: "type2", label: "Type 2", desc: "Non-insulin dependent" },
   { key: "prediabetes", label: "Pre-Diabetes", desc: "At-risk" },
@@ -128,7 +132,7 @@ const DIABETES_OPTIONS = [
   { key: "none", label: "Health Conscious", desc: "No diabetes — general wellness" },
 ];
 
-const ACTIVITY_OPTIONS = [
+const ACTIVITY_OPTIONS: { key: ActivityKey; label: string; desc: string }[] = [
   { key: "sedentary", label: "Mostly Sitting", desc: "Desk job, little movement" },
   { key: "light", label: "Lightly Active", desc: "Walking, light chores 1–3 days/week" },
   { key: "moderate", label: "Fairly Active", desc: "Regular exercise 3–5 days/week" },
@@ -406,8 +410,11 @@ export default function ProfileScreen() {
   // reminders query removed — reminders now has its own tab
 
   const updateProfileMutation = trpc.profile.upsert.useMutation({
-    onSuccess: (data) => profileStore.setProfile(data as any),
-    onError: (e) => Alert.alert("Save failed", e.message),
+    onSuccess: (data) => {
+      profileStore.setProfile(data as UserProfile);
+      Toast.show({ type: "success", text1: "Profile updated", position: "bottom" });
+    },
+    onError: (e) => Toast.show({ type: "error", text1: "Save failed", text2: e.message, position: "bottom" }),
   });
 
   const { data: goals } = trpc.profile.goals.useQuery();
@@ -537,7 +544,7 @@ export default function ProfileScreen() {
   }, [profile?.allergies, profile?.medication]);
 
   const handleSaveHealth = () => {
-    updateProfileMutation.mutate({ allergies, medication } as any);
+    updateProfileMutation.mutate({ allergies, medication });
     setHealthDirty(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
@@ -549,20 +556,20 @@ export default function ProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <PickerModal
+      <PickerModal<DiabetesKey>
         visible={diabetesPickerOpen}
         title="Diabetes Type"
-        options={DIABETES_OPTIONS as any}
-        selected={(profile?.diabetesType ?? "type2") as any}
-        onSelect={(k) => updateProfileMutation.mutate({ diabetesType: k as any })}
+        options={DIABETES_OPTIONS}
+        selected={profile?.diabetesType ?? "type2"}
+        onSelect={(k) => updateProfileMutation.mutate({ diabetesType: k })}
         onClose={() => setDiabetesPickerOpen(false)}
       />
-      <PickerModal
+      <PickerModal<ActivityKey>
         visible={activityPickerOpen}
         title="Activity Level"
-        options={ACTIVITY_OPTIONS as any}
-        selected={(profile?.activityLevel ?? "light") as any}
-        onSelect={(k) => updateProfileMutation.mutate({ activityLevel: k as any })}
+        options={ACTIVITY_OPTIONS}
+        selected={profile?.activityLevel ?? "light"}
+        onSelect={(k) => updateProfileMutation.mutate({ activityLevel: k })}
         onClose={() => setActivityPickerOpen(false)}
       />
       <EditGoalsModal
@@ -796,16 +803,25 @@ export default function ProfileScreen() {
           {healthDirty && (
             <Pressable
               onPress={handleSaveHealth}
+              disabled={updateProfileMutation.isPending}
               style={({ pressed }) => ({
                 backgroundColor: colors.primary,
                 borderRadius: radius.md,
                 paddingVertical: 12,
                 alignItems: "center",
-                opacity: pressed ? 0.8 : 1,
+                flexDirection: "row",
+                justifyContent: "center",
+                gap: 8,
+                opacity: updateProfileMutation.isPending ? 0.6 : pressed ? 0.8 : 1,
                 marginBottom: 8,
               })}
             >
-              <Text style={{ fontSize: 14, fontWeight: "700", color: "#0b1120" }}>Save Health Info</Text>
+              {updateProfileMutation.isPending && (
+                <ActivityIndicator size="small" color="#0b1120" />
+              )}
+              <Text style={{ fontSize: 14, fontWeight: "700", color: "#0b1120" }}>
+                {updateProfileMutation.isPending ? "Saving..." : "Save Health Info"}
+              </Text>
             </Pressable>
           )}
 

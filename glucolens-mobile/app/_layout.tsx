@@ -9,6 +9,7 @@ import { colors } from "@/constants/tokens";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { SplashScreen } from "@/components/SplashScreen";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -75,32 +76,37 @@ export default function RootLayout() {
   }
 
   return (
-    <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <SafeAreaProvider>
-            <StatusBar style="light" />
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: colors.background },
-              }}
-            >
-              <Stack.Screen name="onboarding" options={{}} />
-              <Stack.Screen name="(tabs)" options={{}} />
-              <Stack.Screen
-                name="results"
-                options={{ animation: "slide_from_bottom" }}
-              />
-              <Stack.Screen name="food-log" options={{}} />
-              <Stack.Screen name="reminders" options={{}} />
-              <Stack.Screen name="profile-edit" options={{}} />
-              <Stack.Screen name="coach" options={{ animation: "slide_from_bottom" }} />
-            </Stack>
-            <Toast />
-          </SafeAreaProvider>
-        </GestureHandlerRootView>
-      </QueryClientProvider>
-    </trpc.Provider>
+    <ErrorBoundary>
+      <trpc.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <SafeAreaProvider>
+              <StatusBar style="dark" />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: colors.background },
+                }}
+              >
+                <Stack.Screen name="onboarding" options={{}} />
+                <Stack.Screen name="(tabs)" options={{}} />
+                <Stack.Screen
+                  name="results"
+                  options={{ animation: "slide_from_bottom" }}
+                />
+                <Stack.Screen name="food-log" options={{}} />
+                <Stack.Screen name="reminders" options={{}} />
+                <Stack.Screen name="profile-edit" options={{}} />
+                <Stack.Screen name="water" options={{}} />
+                <Stack.Screen name="foods" options={{}} />
+                <Stack.Screen name="weekly-review" options={{}} />
+                <Stack.Screen name="coach" options={{ animation: "slide_from_bottom" }} />
+              </Stack>
+              <Toast />
+            </SafeAreaProvider>
+          </GestureHandlerRootView>
+        </QueryClientProvider>
+      </trpc.Provider>
+    </ErrorBoundary>
   );
 }
