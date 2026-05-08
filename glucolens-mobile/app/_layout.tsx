@@ -64,16 +64,38 @@ async function ensureSession(): Promise<void> {
   }
 }
 
+/** Hard ceiling so the splash gate never hangs the whole app on auth. */
+const AUTH_TIMEOUT_MS = 4000;
+
+function timed<T>(promise: Promise<T>, ms: number): Promise<T | "timeout"> {
+  return Promise.race([
+    promise,
+    new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), ms)),
+  ]);
+}
+
 export default function RootLayout() {
   // Block children from rendering until we have a confirmed Supabase
   // session. Without this gate, tRPC queries fire immediately on mount
   // with no Authorization header and get "not authenticated" errors.
+  // We use a hard timeout so a flaky network can never strand the user
+  // on the splash screen — better to boot offline than to hang.
   const [authReady, setAuthReady] = useState(skipRemoteBoot);
   const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
     if (skipRemoteBoot) return;
-    ensureSession().finally(() => setAuthReady(true));
+    let cancelled = false;
+    timed(ensureSession(), AUTH_TIMEOUT_MS).then((result) => {
+      if (cancelled) return;
+      if (result === "timeout" && __DEV__) {
+        console.warn("[auth] ensureSession timed out after " + AUTH_TIMEOUT_MS + "ms — booting offline");
+      }
+      setAuthReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (!authReady || !splashDone) {
