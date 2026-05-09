@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Send, Sparkles } from "lucide-react-native";
 import { trpc } from "@/lib/trpc";
 import { colors, radius } from "@/constants/tokens";
+import { useApiStatusStore } from "@/lib/api/status";
 
 type ChatMessage = { role: "user" | "bot"; text: string };
 
@@ -87,19 +88,32 @@ export function CoachChat({
   applyTopInset = true,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const useMockBot = __DEV__ && process.env.EXPO_PUBLIC_MOCK_BOT === "true";
+  // Mock the bot when explicitly requested OR when the backend is
+  // unreachable, so the Coach surface still works as a "tips engine"
+  // offline instead of silently failing on every send.
+  const apiStatus = useApiStatusStore((s) => s.status);
+  const useMockBot =
+    process.env.EXPO_PUBLIC_MOCK_BOT === "true" ||
+    apiStatus === "offline" ||
+    apiStatus === "unreachable";
   const [input, setInput] = useState("");
   const [mockPending, setMockPending] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    {
-      role: "bot",
-      text:
-        initialBotMessage ??
-        (context
-          ? `I'm here. Ask me about ${context.toLowerCase()}, or tell me what you ate and what your glucose did afterwards.`
-          : "I'm here. Ask me about a food, glucose reading, meal plan, or habit you want to improve."),
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const offlineNote =
+      apiStatus === "offline" || apiStatus === "unreachable"
+        ? " (Offline mode — I'm running on a small built-in tip set until the backend is connected.)"
+        : "";
+    return [
+      {
+        role: "bot",
+        text:
+          initialBotMessage ??
+          (context
+            ? `I'm here. Ask me about ${context.toLowerCase()}, or tell me what you ate and what your glucose did afterwards.${offlineNote}`
+            : `I'm here. Ask me about a food, glucose reading, meal plan, or habit you want to improve.${offlineNote}`),
+      },
+    ];
+  });
 
   const askMutation = trpc.chat.ask.useMutation();
   const isPending = askMutation.isPending || mockPending;

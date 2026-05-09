@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { SplashScreen } from "@/components/SplashScreen";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useApiStatusStore } from "@/lib/api/status";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,6 +94,9 @@ export default function RootLayout() {
       }
       setAuthReady(true);
     });
+    // Kick off an API health probe in parallel — it populates the offline
+    // banner and lets feature screens skip pointless mutation attempts.
+    useApiStatusStore.getState().probe();
     return () => {
       cancelled = true;
     };

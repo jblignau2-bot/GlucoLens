@@ -48,6 +48,7 @@ import { LensScoreHero } from "@/components/health/LensScoreHero";
 import { MentorCard } from "@/components/health/MentorCard";
 import { PendingCheckCard } from "@/components/health/PendingCheckCard";
 import { HealthMetricsCard } from "@/components/health/HealthMetricsCard";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { lensScore, mgFromMmol, timeInRange } from "@/lib/health/metrics";
 import { generateMentorMessage } from "@/lib/health/mentor";
 import { syncStepsToday } from "@/lib/health/sync";
@@ -450,6 +451,9 @@ export default function HomeScreen() {
             </View>
           )}
         </View>
+
+        {/* 0) Offline banner — only shown when API is unreachable */}
+        <OfflineBanner />
 
         {/* 1) Lens Score hero */}
         <LensScoreHero score={score} greeting={greeting} />

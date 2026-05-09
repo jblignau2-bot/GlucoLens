@@ -44,6 +44,18 @@ import * as Haptics from "expo-haptics";
 import Toast from "react-native-toast-message";
 import { usePendingChecksStore } from "@/stores/pendingChecksStore";
 import { scheduleFollowUp, FOLLOW_UP_MINUTES } from "@/lib/health/notifications";
+import { useApiStatusStore } from "@/lib/api/status";
+
+function offlineMessage(): string {
+  const status = useApiStatusStore.getState().status;
+  if (status === "offline") {
+    return "AI scan needs an API URL set in your build. Set EXPO_PUBLIC_API_URL and rebuild — your meal photo is still safe locally.";
+  }
+  if (status === "unreachable") {
+    return "Couldn't reach the GlucoLens backend right now. Check your connection or try again in a moment.";
+  }
+  return "Something went wrong. Please try again.";
+}
 
 type Mode = "camera" | "barcode" | "text";
 
@@ -528,7 +540,7 @@ export default function ScanScreen() {
       router.push("/results");
     } catch (e: any) {
       console.warn("[scan] photo analysis error:", e);
-      Alert.alert("Analysis failed", String(e?.message ?? "Something went wrong. Please try again."));
+      Alert.alert("Couldn't analyse the photo", offlineMessage());
     } finally {
       setLoading(false);
     }
@@ -552,7 +564,7 @@ export default function ScanScreen() {
       router.push("/results");
     } catch (e: any) {
       console.warn("[scan] text analysis error:", e);
-      Alert.alert("Analysis failed", String(e?.message ?? "Something went wrong. Please try again."));
+      Alert.alert("Couldn't analyse the meal", offlineMessage());
     } finally {
       setLoading(false);
     }
@@ -576,7 +588,12 @@ export default function ScanScreen() {
       router.push("/results");
     } catch (e: any) {
       console.warn("[scan] barcode analysis error:", e);
-      Alert.alert("Product not found", String(e?.message ?? "Try a different product or use text mode."));
+      const status = useApiStatusStore.getState().status;
+      if (status === "offline" || status === "unreachable") {
+        Alert.alert("Couldn't reach the lookup", offlineMessage());
+      } else {
+        Alert.alert("Product not found", "Try a different product or use text mode.");
+      }
     } finally {
       setLoading(false);
     }

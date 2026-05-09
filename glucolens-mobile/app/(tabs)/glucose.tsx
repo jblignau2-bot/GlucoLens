@@ -39,6 +39,19 @@ import { HealthMetricsCard } from "@/components/health/HealthMetricsCard";
 import { usePendingChecksStore } from "@/stores/pendingChecksStore";
 import { cancelFollowUp } from "@/lib/health/notifications";
 import { mgFromMmol, postMealStoplight } from "@/lib/health/metrics";
+import { useApiStatusStore } from "@/lib/api/status";
+
+function logSaveError(e: { message: string }): void {
+  const status = useApiStatusStore.getState().status;
+  if (status === "offline" || status === "unreachable") {
+    Alert.alert(
+      "Couldn't save to the cloud",
+      "Your reading will sync once the backend is reachable. Set EXPO_PUBLIC_API_URL or check your connection.",
+    );
+  } else {
+    Alert.alert("Couldn't save reading", e.message);
+  }
+}
 
 const SCREEN_W = Dimensions.get("window").width;
 const CHART_W = SCREEN_W - 40;
@@ -629,23 +642,23 @@ export default function GlucoseScreen() {
     },
     onError: (e) => {
       lastSubmittedMmol.current = null;
-      Alert.alert("Error", e.message);
+      logSaveError(e);
     },
   });
 
   const addWeightMutation = trpc.weight.add.useMutation({
     onSuccess: () => { refetchWeight(); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); },
-    onError: (e) => Alert.alert("Error", e.message),
+    onError: (e) => logSaveError(e),
   });
 
   const deleteGlucoseMutation = trpc.glucose.delete.useMutation({
     onSuccess: () => { refetchGlucose(); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); },
-    onError: (e) => Alert.alert("Error", e.message),
+    onError: (e) => logSaveError(e),
   });
 
   const deleteWeightMutation = trpc.weight.delete.useMutation({
     onSuccess: () => { refetchWeight(); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); },
-    onError: (e) => Alert.alert("Error", e.message),
+    onError: (e) => logSaveError(e),
   });
 
   // Chart data
