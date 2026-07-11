@@ -19,10 +19,14 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { Stack, router } from "expo-router";
+import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Toast from "react-native-toast-message";
+import { ArrowLeft } from "lucide-react-native";
 import { trpc } from "@/lib/trpc";
-import { useProfileStore } from "@/stores/profileStore";
+import { useProfileStore, useGlucoseUnit } from "@/stores/profileStore";
 import { colors } from "@/constants/tokens";
+import type { GlucoseUnit } from "@/lib/glucose";
 
 // ── Option sets ──────────────────────────────────────────────────────────────
 
@@ -30,7 +34,11 @@ const DIABETES_OPTIONS = [
   { label: "Type 1",       value: "type1" },
   { label: "Type 2",       value: "type2" },
   { label: "Pre-Diabetes", value: "prediabetes" },
-  { label: "Not Sure",     value: "unsure" },
+];
+
+const GLUCOSE_UNIT_OPTIONS: { label: string; value: GlucoseUnit; desc: string }[] = [
+  { label: "mmol/L", value: "mmol/L", desc: "e.g. 5.6" },
+  { label: "mg/dL",  value: "mg/dL",  desc: "e.g. 100" },
 ];
 
 const ACTIVITY_OPTIONS = [
@@ -111,7 +119,9 @@ function ChipRow({
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function ProfileEditScreen() {
-  const { profile, setProfile } = useProfileStore();
+  const insets = useSafeAreaInsets();
+  const { profile, setProfile, setGlucoseUnit } = useProfileStore();
+  const glucoseUnit = useGlucoseUnit();
 
   const [firstName,      setFirstName]      = useState(profile?.firstName      ?? "");
   const [lastName,       setLastName]        = useState(profile?.lastName       ?? "");
@@ -126,12 +136,31 @@ export default function ProfileEditScreen() {
 
   const upsertMutation = trpc.profile.upsert.useMutation({
     onSuccess: (data) => {
-      setProfile(data);
+      setProfile(data as any);
       router.back();
     },
     onError: (err) => {
       setSaving(false);
-      Alert.alert("Save failed", err.message);
+      // Offline-first: still apply the changes locally (like onboarding does),
+      // and let the user know the backend sync failed.
+      setProfile({
+        ...(profile ?? { id: 0, dailyCalorieGoal: 1800, maxDailySugar: 50, maxDailyCarbs: 200 }),
+        firstName:     firstName.trim(),
+        lastName:      lastName.trim(),
+        age:           age      ? parseInt(age, 10)    : profile?.age,
+        heightCm:      heightCm ? parseFloat(heightCm) : profile?.heightCm,
+        weightKg:      weightKg ? parseFloat(weightKg) : profile?.weightKg,
+        country:       country.trim()      || profile?.country,
+        dietaryPrefs:  dietaryPrefs.trim() || profile?.dietaryPrefs,
+        diabetesType:  diabetesType as any,
+        activityLevel: activityLevel as any,
+      } as any);
+      Toast.show({
+        type: "info",
+        text1: "Saved on this device",
+        text2: `Sync to server failed: ${err.message}`,
+      });
+      router.back();
     },
   });
 
@@ -156,14 +185,35 @@ export default function ProfileEditScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: "Edit Profile",
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.primary,
-          headerTitleStyle: { color: colors.textPrimary, fontWeight: "700" },
+      {/* In-screen header (the root Stack hides native headers) */}
+      <View
+        style={{
+          paddingTop: insets.top + 12,
+          paddingHorizontal: 16,
+          paddingBottom: 16,
+          backgroundColor: colors.primary,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
         }}
-      />
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            backgroundColor: "rgba(255,255,255,0.2)",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ArrowLeft size={18} color="#fff" />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 22, fontWeight: "800", color: "#fff", flex: 1 }}>
+          Edit Profile
+        </Text>
+      </View>
 
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: colors.background }}
@@ -207,6 +257,17 @@ export default function ProfileEditScreen() {
             onChangeText={setDietaryPrefs}
             placeholder="e.g. vegetarian, low-carb…"
           />
+
+          {/* ── Glucose Unit ─────────────────────────────────────────────── */}
+          <Text style={styles.sectionTitle}>Glucose Unit</Text>
+          <ChipRow
+            options={GLUCOSE_UNIT_OPTIONS}
+            selected={glucoseUnit}
+            onSelect={(v) => setGlucoseUnit(v as GlucoseUnit)}
+          />
+          <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 6, marginBottom: 4 }}>
+            Applies immediately to all glucose readings, stats and charts.
+          </Text>
 
           {/* ── Diabetes Type ────────────────────────────────────────────── */}
           <Text style={styles.sectionTitle}>Diabetes Type</Text>

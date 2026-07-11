@@ -23,8 +23,14 @@ export const useRetailerStore = create<RetailerStore>((set) => ({
   hydrate: async () => {
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      if (raw) set({ retailer: raw as Retailer, hydrated: true });
-      else set({ hydrated: true });
+      const VALID_RETAILERS: Retailer[] = ["checkers", "woolworths", "picknpay", "shoprite"];
+      if (raw && VALID_RETAILERS.includes(raw as Retailer)) {
+        set({ retailer: raw as Retailer, hydrated: true });
+      } else {
+        // Unknown / corrupted value — fall back to default (none selected)
+        if (raw) await AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+        set({ retailer: null, hydrated: true });
+      }
     } catch {
       set({ hydrated: true });
     }

@@ -40,7 +40,7 @@ function calcGoals(
 
   let calories = Math.round(bmr * activityMultiplier);
 
-  if ((diabetesType === "type2" || diabetesType === "unsure") && bmi >= 25) {
+  if ((diabetesType === "type2" || diabetesType === "prediabetes") && bmi >= 25) {
     calories = Math.round(calories * 0.85);
   }
   calories = Math.max(1200, Math.min(calories, 3500));
@@ -152,7 +152,7 @@ interface FormData {
   age: string;
   gender: "male" | "female" | "other" | "";
   activityLevel: "sedentary" | "light" | "moderate" | "active";
-  diabetesType: "type1" | "type2" | "unsure" | "none" | "";
+  diabetesType: "type1" | "type2" | "prediabetes" | "none" | "";
   allergies: string;
   medication: string;
   dailyCalorieGoal: number;
@@ -222,7 +222,7 @@ export default function Onboarding() {
     heightCm: "", weightKg: "", age: "",
     gender: "" as "male" | "female" | "other" | "",
     activityLevel: "light" as "sedentary" | "light" | "moderate" | "active",
-    diabetesType: "" as "type1" | "type2" | "unsure" | "none" | "",
+    diabetesType: "" as "type1" | "type2" | "prediabetes" | "none" | "",
     allergies: "",
     medication: "",
     dailyCalorieGoal: 1800, maxDailySugar: 50, maxDailyCarbs: 200,
@@ -693,7 +693,7 @@ export default function Onboarding() {
                           desc: "Insulin resistant. Low sugar, low GI, portion control.",
                         },
                         {
-                          value: "unsure", Icon: HelpCircle,
+                          value: "prediabetes", Icon: HelpCircle,
                           label: "Pre-Diabetes / Unsure",
                           desc: "Higher than normal blood sugar. Focus on prevention.",
                         },

@@ -1,4 +1,12 @@
 -- ============================================================
+-- DEPRECATED (2026-07-11): DO NOT RUN.
+-- This schema contradicts what glucolens-api actually queries
+-- (table names user_profiles/glucose_logs/weight_logs vs the API's
+-- profiles/glucose_readings/weight_entries, missing columns, etc.).
+-- The source of truth is glucolens-api/supabase/000_canonical_schema.sql.
+-- ============================================================
+
+-- ============================================================
 -- GlucoLens — Supabase PostgreSQL Schema
 -- Migration 001: Initial schema
 --

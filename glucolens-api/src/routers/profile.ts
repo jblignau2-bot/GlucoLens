@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { supabase } from "../supabase";
+import { internalError } from "../lib/errors";
+import { diabetesTypeSchema } from "../lib/validation";
 
 export const profileRouter = router({
   get: protectedProcedure.query(async ({ ctx }) => {
@@ -8,7 +10,7 @@ export const profileRouter = router({
       .from("profiles")
       .select("*")
       .eq("user_id", ctx.userId)
-      .single();
+      .maybeSingle();
     if (!data) return null;
     return {
       id: data.id,
@@ -40,7 +42,7 @@ export const profileRouter = router({
       .from("profiles")
       .select("daily_calorie_goal, max_daily_sugar, max_daily_carbs")
       .eq("user_id", ctx.userId)
-      .single();
+      .maybeSingle();
     if (!data) return { dailyCalorieGoal: 1800, maxDailySugar: 25, maxDailyCarbs: 130 };
     return {
       dailyCalorieGoal: data.daily_calorie_goal ?? 1800,
@@ -51,26 +53,25 @@ export const profileRouter = router({
 
   upsert: protectedProcedure
     .input(z.object({
-      firstName: z.string().optional(),
-      lastName: z.string().optional(),
-      email: z.string().optional(),
-      country: z.string().optional(),
-      countryCode: z.string().optional(),
-      countryFlag: z.string().optional(),
+      firstName: z.string().max(100).optional(),
+      lastName: z.string().max(100).optional(),
+      country: z.string().max(60).optional(),
+      countryCode: z.string().max(10).optional(),
+      countryFlag: z.string().max(10).optional(),
       heightCm: z.number().optional(),
       weightKg: z.number().optional(),
       age: z.number().optional(),
       gender: z.enum(["male", "female", "other"]).optional(),
       activityLevel: z.enum(["sedentary", "light", "moderate", "active", "very_active"]).optional(),
-      diabetesType: z.enum(["type1", "type2", "prediabetes", "unsure", "none"]).optional(),
+      diabetesType: diabetesTypeSchema.optional(),
       dailyCalorieGoal: z.number().optional(),
       maxDailySugar: z.number().optional(),
       maxDailyCarbs: z.number().optional(),
-      dietaryRestrictions: z.string().optional(),
-      dietaryPrefs: z.string().optional(),
-      allergies: z.string().optional().nullable(),
-      medication: z.string().optional().nullable(),
-      onboardingComplete: z.number().optional(),
+      dietaryRestrictions: z.string().max(200).optional(),
+      dietaryPrefs: z.string().max(200).optional(),
+      allergies: z.string().max(200).optional().nullable(),
+      medication: z.string().max(200).optional().nullable(),
+      onboardingComplete: z.union([z.literal(0), z.literal(1)]).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       // Build row with only provided fields to avoid nulling existing data
@@ -104,7 +105,7 @@ export const profileRouter = router({
         .select()
         .single();
 
-      if (error) throw new Error(error.message);
+      if (error) internalError("profile.upsert", error);
       return {
         id: data.id,
         userId: data.user_id,

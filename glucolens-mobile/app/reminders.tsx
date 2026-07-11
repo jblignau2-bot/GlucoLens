@@ -34,20 +34,33 @@ import {
   UtensilsCrossed,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
-// expo-notifications remote push is not supported in Expo Go (SDK 53+).
-// Stub it so the reminders UI works; swap for real impl in a dev build.
-const Notifications = {
-  requestPermissionsAsync: async () => ({ status: "granted" }),
-  scheduleNotificationAsync: async (_: any) => "stub-id",
-  cancelScheduledNotificationAsync: async (_: string) => {},
-  setNotificationHandler: (_: any) => {},
-};
+import * as Notifications from "expo-notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// Notifications are native-only — every helper below no-ops gracefully on web.
+const notificationsSupported = Platform.OS !== "web";
+
+if (notificationsSupported) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function requestNotificationPermission(): Promise<boolean> {
-  const { status } = await Notifications.requestPermissionsAsync();
-  return status === "granted";
+  if (!notificationsSupported) return false;
+  try {
+    const { status } = await Notifications.requestPermissionsAsync();
+    return status === "granted";
+  } catch {
+    return false;
+  }
 }
 
 function parseTime(hhmm: string | null | undefined): { hour: number; minute: number } {
@@ -57,20 +70,64 @@ function parseTime(hhmm: string | null | undefined): { hour: number; minute: num
   return { hour: h ?? 8, minute: m ?? 0 };
 }
 
-async function scheduleReminder(label: string, time: string) {
-  const { hour, minute } = parseTime(time);
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "GlucoLens Reminder",
-      body: label,
-      sound: true,
-    },
-    trigger: {
-      hour,
-      minute,
-      repeats: true,
-    },
-  });
+// Map server reminder id → scheduled local notification id, so we can cancel
+// the right notification when a reminder is disabled or deleted.
+const NOTIF_MAP_KEY = "@glucolens/reminder-notifications";
+
+async function readNotifMap(): Promise<Record<string, string>> {
+  try {
+    const raw = await AsyncStorage.getItem(NOTIF_MAP_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+async function writeNotifMap(map: Record<string, string>): Promise<void> {
+  try {
+    await AsyncStorage.setItem(NOTIF_MAP_KEY, JSON.stringify(map));
+  } catch {}
+}
+
+async function scheduleReminder(reminderId: number | string, label: string, time: string) {
+  if (!notificationsSupported) return;
+  try {
+    // Cancel any previous schedule for this reminder first.
+    await cancelReminder(reminderId);
+    const { hour, minute } = parseTime(time);
+    const notifId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "GlucoLens Reminder",
+        body: label,
+        sound: true,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour,
+        minute,
+      },
+    });
+    const map = await readNotifMap();
+    map[String(reminderId)] = notifId;
+    await writeNotifMap(map);
+  } catch (e) {
+    console.warn("[reminders] failed to schedule notification:", e);
+  }
+}
+
+async function cancelReminder(reminderId: number | string) {
+  if (!notificationsSupported) return;
+  try {
+    const map = await readNotifMap();
+    const notifId = map[String(reminderId)];
+    if (notifId) {
+      await Notifications.cancelScheduledNotificationAsync(notifId);
+      delete map[String(reminderId)];
+      await writeNotifMap(map);
+    }
+  } catch (e) {
+    console.warn("[reminders] failed to cancel notification:", e);
+  }
 }
 
 // ─── Time picker (simple wheel-free HH:MM input) ─────────────────────────────
@@ -389,12 +446,13 @@ export default function RemindersScreen() {
   const { data: reminders, refetch, isLoading } = trpc.reminders.list.useQuery();
 
   const addMutation = trpc.reminders.add.useMutation({
-    onSuccess: async (newReminder: any) => {
+    // The API returns the full reminder row: { id, label, time, type, enabled }
+    onSuccess: async (newReminder) => {
       refetch();
       // Schedule local notification
       const granted = await requestNotificationPermission();
       if (granted) {
-        await scheduleReminder(newReminder.label, newReminder.time);
+        await scheduleReminder(newReminder.id, newReminder.label, newReminder.time);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
@@ -403,7 +461,26 @@ export default function RemindersScreen() {
 
   const toggleMutation = trpc.reminders.toggle.useMutation({
     onSuccess: () => refetch(),
+    onError: (e) => Alert.alert("Error", e.message),
   });
+
+  const handleToggle = (r: { id: number; label: string; time: string; enabled: boolean }) => {
+    const nextEnabled = !r.enabled;
+    Haptics.selectionAsync();
+    toggleMutation.mutate(
+      { id: Number(r.id), enabled: nextEnabled },
+      {
+        onSuccess: async () => {
+          if (nextEnabled) {
+            const granted = await requestNotificationPermission();
+            if (granted) await scheduleReminder(r.id, r.label, r.time);
+          } else {
+            await cancelReminder(r.id);
+          }
+        },
+      }
+    );
+  };
 
   const deleteMutation = trpc.reminders.delete.useMutation({
     onSuccess: () => {
@@ -419,7 +496,11 @@ export default function RemindersScreen() {
       {
         text: "Delete",
         style: "destructive",
-        onPress: () => deleteMutation.mutate({ id: String(id) }),
+        onPress: () =>
+          deleteMutation.mutate(
+            { id: Number(id) },
+            { onSuccess: () => cancelReminder(id) }
+          ),
       },
     ]);
   };
@@ -624,13 +705,7 @@ export default function RemindersScreen() {
                       </View>
                       <Switch
                         value={!!r.enabled}
-                        onValueChange={() => {
-                          Haptics.selectionAsync();
-                          toggleMutation.mutate({
-                            id: r.id,
-                            enabled: !r.enabled,
-                          });
-                        }}
+                        onValueChange={() => handleToggle(r)}
                         trackColor={{
                           false: colors.border,
                           true: colors.primary,

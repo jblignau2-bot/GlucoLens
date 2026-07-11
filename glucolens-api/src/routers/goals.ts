@@ -1,18 +1,22 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { supabase } from "../supabase";
+import { internalError } from "../lib/errors";
 
 export const goalsRouter = router({
 
-  /** List all progress photos for the user, grouped by week */
-  listPhotos: protectedProcedure.query(async ({ ctx }) => {
+  /** List progress photos for the user, grouped by week */
+  listPhotos: protectedProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(100).default(50) }).optional())
+    .query(async ({ ctx, input }) => {
     const { data, error } = await supabase
       .from("progress_photos")
       .select("*")
       .eq("user_id", ctx.userId)
       .order("week", { ascending: true })
-      .order("angle", { ascending: true });
-    if (error) throw new Error(error.message);
+      .order("angle", { ascending: true })
+      .limit(input?.limit ?? 50);
+    if (error) internalError("goals.listPhotos", error);
     return (data ?? []).map((r: any) => ({
       id: r.id,
       week: r.week,
@@ -46,7 +50,7 @@ export const goalsRouter = router({
         )
         .select()
         .single();
-      if (error) throw new Error(error.message);
+      if (error) internalError("goals.savePhoto", error);
       return { id: data.id };
     }),
 
@@ -59,7 +63,7 @@ export const goalsRouter = router({
         .delete()
         .eq("id", input.id)
         .eq("user_id", ctx.userId);
-      if (error) throw new Error(error.message);
+      if (error) internalError("goals.deletePhoto", error);
       return { ok: true };
     }),
 });

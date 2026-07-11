@@ -8,11 +8,13 @@ import {
   ScrollView,
   Pressable,
   RefreshControl,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Svg, { Polygon } from "react-native-svg";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trpc } from "@/lib/trpc";
 import { useProfileStore } from "@/stores/profileStore";
 import { colors, radius, fonts } from "@/constants/tokens";
@@ -26,7 +28,6 @@ import {
   TrendingUp,
   Droplets,
   UtensilsCrossed,
-  Flame,
   type LucideIcon,
 } from "lucide-react-native";
 import { format } from "date-fns";
@@ -93,40 +94,49 @@ interface TileProps {
   icon: LucideIcon;
   label: string;
   onPress: () => void;
+  accent?: string;
+  size: number;
 }
 
-function Tile({ icon: Icon, label, onPress }: TileProps) {
+function Tile({ icon: Icon, label, onPress, accent = colors.primary, size }: TileProps) {
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({
-        width: "31.5%",
-        height: 112,
+        width: size,
+        height: size * 0.95,
         alignItems: "center",
         justifyContent: "center",
-        opacity: pressed ? 0.75 : 1,
+        opacity: pressed ? 0.78 : 1,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
       })}
     >
       <Svg
-        viewBox="0 0 100 112"
+        viewBox="0 0 100 104"
         preserveAspectRatio="none"
         style={{ position: "absolute", width: "100%", height: "100%" }}
       >
         <Polygon
-          points="50,2 94,27 94,85 50,110 6,85 6,27"
+          points="50,0 98,27 98,77 50,104 2,77 2,27"
+          fill="rgba(9,23,42,0.94)"
+          stroke={colors.glassBorder}
+          strokeWidth="1.6"
+        />
+        <Polygon
+          points="50,8 89,30 89,74 50,96 11,74 11,30"
           fill={colors.card}
-          stroke={colors.border}
-          strokeWidth="1.4"
+          stroke="rgba(160,180,255,0.08)"
+          strokeWidth="1"
         />
       </Svg>
       <View style={{ alignItems: "center", justifyContent: "center", paddingHorizontal: 10 }}>
         <View style={{
-          width: 38, height: 38, borderRadius: 13,
-          backgroundColor: colors.primaryLight,
+          width: 40, height: 40, borderRadius: 14,
+          backgroundColor: `${accent}22`,
           alignItems: "center", justifyContent: "center",
           marginBottom: 6,
         }}>
-          <Icon size={20} color={colors.primary} strokeWidth={1.9} />
+          <Icon size={20} color={accent} strokeWidth={2.1} />
         </View>
         <Text style={{
           fontSize: 12,
@@ -146,16 +156,35 @@ function Tile({ icon: Icon, label, onPress }: TileProps) {
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const router = useRouter();
   const profile = useProfileStore((s) => s.profile);
   const [refreshing, setRefreshing] = useState(false);
-  const [waterCups] = useState(4); // local-only placeholder (cups out of 8)
-  const [streakDays] = useState(12); // local-only placeholder
 
-  // Try the API, but fall back to local / defaults if the backend is dead.
+  // Local per-day water counter, persisted in AsyncStorage.
+  const waterKey = `@glucolens/water/${format(new Date(), "yyyy-MM-dd")}`;
+  const [waterCups, setWaterCups] = useState(0);
+  useEffect(() => {
+    AsyncStorage.getItem(waterKey)
+      .then((v) => setWaterCups(v ? Number(v) || 0 : 0))
+      .catch(() => {});
+  }, [waterKey]);
+  const incrementWater = () => {
+    setWaterCups((prev) => {
+      const next = prev >= 8 ? 0 : prev + 1;
+      AsyncStorage.setItem(waterKey, String(next)).catch(() => {});
+      return next;
+    });
+  };
+
+  // Today's meals from the API. On error (offline) we silently show zeros.
   const { data: todayLogs, refetch } = trpc.food.list.useQuery(
-    { from: new Date().setHours(0, 0, 0, 0).toString(), to: new Date().toISOString(), limit: 20 },
-    { retry: false, enabled: false }, // keep disabled for now — backend URL is offline
+    {
+      from: new Date(new Date().setHours(0, 0, 0, 0)).toISOString(),
+      to: new Date().toISOString(),
+      limit: 20,
+    },
+    { retry: false },
   );
 
   const onRefresh = useCallback(async () => {
@@ -178,11 +207,25 @@ export default function DashboardScreen() {
   const initial = firstName.charAt(0).toUpperCase();
   const dateLabel = format(new Date(), "EEEE, d MMMM");
   const caloriesLeft = Math.max(maxCalories - totalCalories, 0);
+  const tiles = [
+    { icon: CalendarDays, label: "Planner", accent: colors.primary, onPress: () => router.push("/(tabs)/planner") },
+    { icon: Camera, label: "Scan", accent: "#9BE7D8", onPress: () => router.push("/(tabs)/scan") },
+    { icon: BookOpen, label: "Guide", accent: colors.primary, onPress: () => router.push("/(tabs)/reminders") },
+    { icon: LineChart, label: "Glucose", accent: "#B6F09C", onPress: () => router.push("/(tabs)/glucose") },
+    { icon: FileText, label: "Diary", accent: colors.primary, onPress: () => router.push("/food-log" as any) },
+    { icon: TrendingUp, label: "Progress", accent: "#FFC857", onPress: () => router.push("/goals" as any) },
+    { icon: Droplets, label: `Water ${waterCups}/8`, accent: "#72D7FF", onPress: incrementWater },
+    { icon: UtensilsCrossed, label: "Foods", accent: "#FFB58A", onPress: () => router.push("/food-log" as any) },
+  ];
+  const contentWidth = Math.max(width - 40, 300);
+  const tileGap = 8;
+  const tileSize = Math.min((contentWidth - tileGap * 2) / 3, 118);
+  const honeycombRows = [tiles.slice(0, 3), tiles.slice(3, 5), tiles.slice(5, 8)];
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + 176, paddingHorizontal: 20, paddingTop: insets.top + 12 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 146, paddingHorizontal: 20, paddingTop: insets.top + 12 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
@@ -197,17 +240,10 @@ export default function DashboardScreen() {
         </Text>
 
         {/* Greeting, streak, and avatar */}
-        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
+        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
               <Text style={{ fontSize: 12, color: colors.textMuted }}>{dateLabel}</Text>
-              <Text style={{ fontSize: 12, color: colors.textMuted }}>·</Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                <Flame size={12} color={colors.primary} strokeWidth={2.25} />
-                <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "700" }}>
-                  {streakDays}-day streak
-                </Text>
-              </View>
             </View>
             <Text style={{
               fontFamily: fonts.serifBold,
@@ -233,7 +269,7 @@ export default function DashboardScreen() {
           backgroundColor: colors.card,
           borderRadius: radius.xl,
           borderWidth: 1, borderColor: colors.border,
-          padding: 18, marginBottom: 16,
+          padding: 18, marginBottom: 14,
         }}>
           <Text style={{
             fontSize: 11,
@@ -251,24 +287,24 @@ export default function DashboardScreen() {
         </View>
 
         {/* Honeycomb launcher */}
-        <View style={{ marginBottom: 18 }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <Tile icon={CalendarDays} label="Planner" onPress={() => router.push("/(tabs)/planner")} />
-            <Tile icon={Camera} label="Scan" onPress={() => router.push("/(tabs)/scan")} />
-            <Tile icon={BookOpen} label="Guide" onPress={() => router.push("/(tabs)/reminders")} />
-          </View>
-          <View style={{ flexDirection: "row", justifyContent: "center", gap: 8, marginTop: -28 }}>
-            <Tile icon={LineChart} label="Glucose" onPress={() => router.push("/(tabs)/glucose")} />
-            <Tile icon={FileText} label="Diary" onPress={() => router.push("/food-log" as any)} />
-          </View>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: -28 }}>
-            <Tile icon={TrendingUp} label="Progress" onPress={() => router.push("/progress" as any)} />
-            <Tile icon={Droplets} label={`Water ${waterCups}/8`} onPress={() => router.push("/water" as any)} />
-            <Tile icon={UtensilsCrossed} label="Foods" onPress={() => router.push("/foods" as any)} />
-          </View>
+        <View style={{ marginBottom: 12, alignItems: "center" }}>
+          {honeycombRows.map((row, rowIndex) => (
+            <View
+              key={rowIndex}
+              style={{
+                flexDirection: "row",
+                gap: tileGap,
+                marginTop: rowIndex === 0 ? 0 : -16,
+              }}
+            >
+              {row.map((tile) => (
+                <Tile key={tile.label} {...tile} size={tileSize} />
+              ))}
+            </View>
+          ))}
         </View>
       </ScrollView>
-      <GlucoBotDock bottomOffset={insets.bottom + 86} />
+      <GlucoBotDock bottomOffset={insets.bottom + 74} />
     </View>
   );
 }

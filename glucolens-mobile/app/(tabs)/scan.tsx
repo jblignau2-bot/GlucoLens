@@ -22,8 +22,8 @@ import {
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useState, useRef, useCallback } from "react";
 import * as ImagePicker from "expo-image-picker";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { trpc } from "@/lib/trpc";
@@ -155,7 +155,7 @@ function PhotoPanel({ onAnalyse, loading }: { onAnalyse: (base64: string) => voi
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       quality: 0.5,
       base64: true,
     });
@@ -269,7 +269,18 @@ function PhotoPanel({ onAnalyse, loading }: { onAnalyse: (base64: string) => voi
 
 function BarcodePanel({ onAnalyse, loading }: { onAnalyse: (barcode: string) => void; loading: boolean }) {
   const [scanned, setScanned] = useState(false);
+  // Synchronous guard — onBarcodeScanned can fire multiple times per frame
+  // before React state updates, so a ref is set immediately on first hit.
+  const scannedRef = useRef(false);
   const [permission, requestPermission] = useCameraPermissions();
+
+  // Reset the guard whenever the user returns to this screen.
+  useFocusEffect(
+    useCallback(() => {
+      scannedRef.current = false;
+      setScanned(false);
+    }, [])
+  );
 
   if (!permission) {
     return <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />;
@@ -304,7 +315,8 @@ function BarcodePanel({ onAnalyse, loading }: { onAnalyse: (barcode: string) => 
             facing="back"
             barcodeScannerSettings={{ barcodeTypes: ["ean13", "ean8", "upc_a", "upc_e", "qr"] }}
             onBarcodeScanned={({ data }) => {
-              if (scanned || loading) return;
+              if (scannedRef.current || loading) return;
+              scannedRef.current = true;
               setScanned(true);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               onAnalyse(data);
@@ -325,7 +337,7 @@ function BarcodePanel({ onAnalyse, loading }: { onAnalyse: (barcode: string) => 
                 <Check size={40} color={colors.primary} />
                 <Text style={{ color: colors.textPrimary, fontWeight: "700", fontSize: 15 }}>Barcode scanned</Text>
                 <Pressable
-                  onPress={() => setScanned(false)}
+                  onPress={() => { scannedRef.current = false; setScanned(false); }}
                   style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 }}
                 >
                   <RefreshCw size={14} color={colors.primary} />

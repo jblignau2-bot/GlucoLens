@@ -79,7 +79,7 @@ export default function GoalsScreen() {
 
   const handlePickPhoto = async (week: number, angle: string) => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       quality: 0.6,
       base64: true,
       allowsEditing: true,

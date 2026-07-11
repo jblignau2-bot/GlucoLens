@@ -1,7 +1,46 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "../trpc";
 import { supabase } from "../supabase";
 import { openai } from "../openai";
+import { internalError, aiFailure } from "../lib/errors";
+import { diabetesTypeSchema, countrySchema, promptText } from "../lib/validation";
+
+// ─── AI output schema ────────────────────────────────────────────────────────
+const mealSchema = z.object({
+  name: z.coerce.string(),
+  description: z.coerce.string().default(""),
+  calories: z.coerce.number().default(0),
+  carbs_g: z.coerce.number().default(0),
+  protein_g: z.coerce.number().default(0),
+  fat_g: z.coerce.number().default(0),
+  sugar_g: z.coerce.number().default(0),
+  fiber_g: z.coerce.number().default(0),
+  ingredients: z
+    .array(z.object({
+      name: z.coerce.string(),
+      amount: z.coerce.string().default(""),
+      grams: z.coerce.number().default(0),
+    }))
+    .default([]),
+  cookingInstructions: z.coerce.string().default(""),
+}).passthrough();
+
+const daySchema = z.object({
+  day: z.coerce.string(),
+  meals: z.object({
+    breakfast: mealSchema,
+    lunch: mealSchema,
+    dinner: mealSchema,
+    snack: mealSchema,
+  }),
+  dailyTotals: z.record(z.coerce.number()).default({}),
+}).passthrough();
+
+const planSchema = z.object({
+  days: z.array(daySchema).min(7),
+  weeklyTip: z.coerce.string().default(""),
+}).passthrough();
 
 export const mealPlanRouter = router({
   getCurrent: protectedProcedure
@@ -14,7 +53,7 @@ export const mealPlanRouter = router({
         .eq("week_start", input.weekStart)
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       if (!data) return null;
       return {
         id: data.id,
@@ -29,9 +68,9 @@ export const mealPlanRouter = router({
     .input(
       z.object({
         weekStart: z.string(),
-        dietaryRestrictions: z.string().optional(),
-        country: z.string().optional(),
-        diabetesType: z.string().optional(),
+        dietaryRestrictions: promptText(200).optional(),
+        country: countrySchema.optional(),
+        diabetesType: diabetesTypeSchema.optional(),
         dailyCalorieGoal: z.number().optional(),
         maxDailyCarbs: z.number().optional(),
         maxDailySugar: z.number().optional(),
@@ -112,7 +151,7 @@ Generate ALL 7 days (Monday through Sunday). Each day MUST have breakfast, lunch
         });
 
         const content = response.choices[0]?.message?.content;
-        if (!content) throw new Error("AI returned no meal plan. Please try again.");
+        if (!content) throw new Error("empty completion");
         let clean = content
           .replace(/^\uFEFF/, "")
           .replace(/```json\n?/g, "")
@@ -123,18 +162,12 @@ Generate ALL 7 days (Monday through Sunday). Each day MUST have breakfast, lunch
         if (firstBrace !== -1 && lastBrace > firstBrace) {
           clean = clean.slice(firstBrace, lastBrace + 1);
         }
-        planData = JSON.parse(clean);
-        if (!planData?.days || !Array.isArray(planData.days) || planData.days.length < 7) {
-          throw new Error("AI returned an incomplete meal plan. Please try again.");
-        }
+        const parsed = planSchema.safeParse(JSON.parse(clean));
+        if (!parsed.success) throw new Error(parsed.error.message);
+        planData = parsed.data;
       } catch (err: any) {
-        const msg = err?.message ?? String(err);
-        console.error("OpenAI / parse error:", msg);
-        // Surface the real reason so we can debug
-        if (msg.includes("incomplete")) {
-          throw new Error("AI returned an incomplete meal plan — try again.");
-        }
-        throw new Error(`Meal plan generation failed: ${msg.slice(0, 120)}`);
+        if (err instanceof TRPCError) throw err;
+        aiFailure("mealPlan.generate", err);
       }
 
       // Inject user limits into the plan so the frontend can display them
@@ -157,10 +190,7 @@ Generate ALL 7 days (Monday through Sunday). Each day MUST have breakfast, lunch
         .select()
         .single();
 
-      if (error) {
-        console.error("Supabase upsert error:", error.message);
-        throw new Error(error.message);
-      }
+      if (error) internalError("mealPlan.generate", error);
 
       return {
         id: data.id,

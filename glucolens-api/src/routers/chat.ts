@@ -2,6 +2,7 @@ import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { openai } from "../openai";
 import { supabase } from "../supabase";
+import { aiFailure } from "../lib/errors";
 
 export const chatRouter = router({
   ask: protectedProcedure
@@ -16,6 +17,18 @@ export const chatRouter = router({
         .eq("user_id", ctx.userId)
         .maybeSingle();
 
+      // Only include allergies/medication in the prompt when non-empty
+      const profileForPrompt = profile
+        ? {
+            diabetes_type: profile.diabetes_type,
+            daily_calorie_goal: profile.daily_calorie_goal,
+            max_daily_carbs: profile.max_daily_carbs,
+            max_daily_sugar: profile.max_daily_sugar,
+            ...(profile.allergies ? { allergies: profile.allergies } : {}),
+            ...(profile.medication ? { medication: profile.medication } : {}),
+          }
+        : null;
+
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         temperature: 0.35,
@@ -29,7 +42,7 @@ export const chatRouter = router({
           {
             role: "user",
             content: JSON.stringify({
-              profile: profile ?? null,
+              profile: profileForPrompt,
               context: input.context ?? null,
               question: input.message,
             }),
@@ -38,7 +51,7 @@ export const chatRouter = router({
       });
 
       const answer = response.choices[0]?.message?.content?.trim();
-      if (!answer) throw new Error("GlucoBot did not return a response. Please try again.");
+      if (!answer) aiFailure("chat.ask", "empty completion", "GlucoBot did not return a response. Please try again.");
       return { answer };
     }),
 });
