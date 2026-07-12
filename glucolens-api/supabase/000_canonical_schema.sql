@@ -16,7 +16,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ── helper: updated_at trigger function ─────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.set_updated_at()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SET search_path = '' AS $$
 BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
