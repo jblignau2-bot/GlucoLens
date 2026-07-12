@@ -13,6 +13,8 @@ ios/
 *.keystore
 *.jks
 *.log
-test-screenshots/
-.codex-logs/
 .claude/worktrees/
+
+# Local-only junk drawer — see archive/README.md (only its README is tracked)
+archive/*
+!archive/README.md
