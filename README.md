@@ -11,7 +11,7 @@ coach, and keep an offline emergency Medical ID.
 | Folder | What it is |
 |---|---|
 | `glucolens-mobile/` | The app — Expo / React Native (expo-router, Zustand, tRPC client). |
-| `glucolens-api/` | The backend — Express + tRPC, talks to Supabase (data) and OpenAI (AI features). Deployed on Railway. |
+| `glucolens-api/` | The backend — Express + tRPC, talks to Supabase (data) and OpenAI (AI features). Not currently deployed (see Deployment). |
 | `docs/` | Guides (`LOCAL-TESTING.md`, `HANDOFF-BRIEF.md`), design mockups, and `reference/glucosemate/` (salvaged code from an earlier prototype). |
 | `archive/` | Old backups, screenshots, logs. Not used by anything — safe to delete. See its README. |
 | `.github/workflows/` | CI: Android APK/AAB build pipelines. |
@@ -85,8 +85,13 @@ More detail in [docs/LOCAL-TESTING.md](docs/LOCAL-TESTING.md).
 
 ## Deployment
 
-- **API**: Railway (`glucolens-api-production.up.railway.app`). After changing
-  Supabase projects or keys, update the env vars in the Railway dashboard.
+- **API**: ⚠️ currently NOT deployed anywhere — the old Railway deployment is
+  decommissioned, so AI features (scan, meal plans, coach) won't work until the
+  API is hosted again. The repo ships a `glucolens-api/render.yaml` for Render:
+  create a Web Service from this repo, then set `SUPABASE_URL`,
+  `SUPABASE_SERVICE_ROLE_KEY`, and `OPENAI_API_KEY` in the Render dashboard and
+  point `EXPO_PUBLIC_API_URL` (mobile .env) at the new URL.
+  For local use, `npm run api` works today.
 - **Database**: Supabase. Apply `glucolens-api/supabase/000_canonical_schema.sql`
   via the SQL editor; it is safe to re-run.
 - **App**: GitHub Actions builds APK/AAB from `main`.
