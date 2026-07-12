@@ -28,7 +28,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trpc } from "@/lib/trpc";
 import { useProfileStore } from "@/stores/profileStore";
 import { supabase } from "@/lib/supabase";
-import { clearStoredCredentials } from "@/lib/deviceCredentials";
+import { clearStoredCredentials, DEVICE_EMAIL_RE } from "@/lib/deviceCredentials";
 import { colors, radius } from "@/constants/tokens";
 import {
   User,
@@ -43,6 +43,7 @@ import {
   Pill,
   AlertTriangle,
   Store,
+  ShieldCheck,
 } from "lucide-react-native";
 import { useRetailerStore } from "@/stores/retailerStore";
 import { retailerInfo } from "@/constants/tokens";
@@ -417,6 +418,21 @@ export default function ProfileScreen() {
       .catch(() => {});
   }, []);
 
+  // Auth account status: a device_*@glucolens.app email means the silent
+  // per-device account; any other email means the user secured it.
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
+  const accountSecured = !!accountEmail && !DEVICE_EMAIL_RE.test(accountEmail);
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (!cancelled) setAccountEmail(data?.user?.email ?? null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   // reminders query removed — reminders now has its own tab
 
   const updateProfileMutation = trpc.profile.upsert.useMutation({
@@ -429,7 +445,9 @@ export default function ProfileScreen() {
   const handleSignOut = () => {
     Alert.alert(
       "Sign out",
-      "Signing out will disconnect this device's data. Your logs stay on the server, but this device will start with a fresh account next time.",
+      accountSecured
+        ? "Your account is secured with your email, so signing out is safe — you can sign back in anytime to get your data back."
+        : "Signing out will disconnect this device's data. Your logs stay on the server, but this device will start with a fresh account next time.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -866,8 +884,14 @@ export default function ProfileScreen() {
             }
           />
 
-          {/* ── Sign out ── */}
+          {/* ── Account ── */}
           <SectionHeader title="Account" />
+          <SettingsRow
+            icon={<ShieldCheck size={16} color={colors.primary} />}
+            label="Account & Sign In"
+            value={accountSecured ? accountEmail! : "Secure your account with an email"}
+            onPress={() => router.push("/account")}
+          />
           <SettingsRow
             icon={<LogOut size={16} color={colors.risky} />}
             label="Sign Out"

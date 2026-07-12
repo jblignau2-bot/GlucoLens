@@ -12,6 +12,13 @@ import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 
+/**
+ * Emails matching this pattern are silent per-device accounts generated at
+ * first launch. Anything else means the user attached a real email
+ * ("secured" their account).
+ */
+export const DEVICE_EMAIL_RE = /^device_.*@glucolens\.app$/;
+
 const CRED_EMAIL_KEY = "gl_device_email";
 const CRED_PASSWORD_KEY = "gl_device_password";
 
