@@ -1,0 +1,46 @@
+name: CI
+
+# Fast validation for every pull request and pushes to main.
+# Native APK/AAB builds live in build-apk.yml / build-aab.yml and are heavier;
+# this job just proves the code installs, type-checks, lints, and compiles.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref to save minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies (workspaces)
+        run: npm ci
+
+      - name: Build API
+        working-directory: glucolens-api
+        run: npm run build
+
+      - name: Typecheck mobile
+        working-directory: glucolens-mobile
+        run: npm run typecheck
+
+      - name: Lint mobile
+        working-directory: glucolens-mobile
+        run: npm run lint
