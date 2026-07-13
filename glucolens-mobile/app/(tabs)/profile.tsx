@@ -15,34 +15,35 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  Switch,
   Alert,
   ActivityIndicator,
   Modal,
-  Platform,
+  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trpc } from "@/lib/trpc";
 import { useProfileStore } from "@/stores/profileStore";
 import { supabase } from "@/lib/supabase";
-import { colors, radius, shadow } from "@/constants/tokens";
+import { clearStoredCredentials, DEVICE_EMAIL_RE } from "@/lib/deviceCredentials";
+import { colors, radius } from "@/constants/tokens";
 import {
   User,
   Activity,
-  Bell,
   Download,
   LogOut,
   ChevronRight,
   CheckCircle2,
   FileText,
   Edit2,
-  Save,
   X,
   Pill,
   AlertTriangle,
   Store,
+  ShieldCheck,
 } from "lucide-react-native";
 import { useRetailerStore } from "@/stores/retailerStore";
 import { retailerInfo } from "@/constants/tokens";
@@ -127,8 +128,7 @@ function SettingsRow({
 const DIABETES_OPTIONS = [
   { key: "type1", label: "Type 1", desc: "Insulin-dependent" },
   { key: "type2", label: "Type 2", desc: "Non-insulin dependent" },
-  { key: "prediabetes", label: "Pre-Diabetes", desc: "At-risk" },
-  { key: "unsure", label: "Pre-Diabetes / Unsure", desc: "Use general guidance" },
+  { key: "prediabetes", label: "Pre-Diabetes", desc: "At-risk or unsure — general guidance" },
   { key: "none", label: "Health Conscious", desc: "No diabetes — general wellness" },
 ];
 
@@ -390,15 +390,19 @@ function EditGoalsModal({
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
+const PROFILE_PHOTO_KEY = "@glucolens/profile-photo";
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const profileStore = useProfileStore();
   const profile = profileStore.profile;
 
-  const { retailer, hydrate: hydrateRetailer, hydrated: retailerHydrated } = useRetailerStore();
+  const retailerStore = useRetailerStore();
+  const { retailer, hydrate: hydrateRetailer, hydrated: retailerHydrated } = retailerStore;
   useEffect(() => { if (!retailerHydrated) hydrateRetailer(); }, [retailerHydrated, hydrateRetailer]);
-  const retailerLabel = retailer ? retailerInfo[retailer].name : "Tap to choose";
+  const retailerLabel = retailer && retailerInfo[retailer] ? retailerInfo[retailer].name : "Tap to choose";
 
   const [diabetesPickerOpen, setDiabetesPickerOpen] = useState(false);
   const [activityPickerOpen, setActivityPickerOpen] = useState(false);
@@ -406,6 +410,28 @@ export default function ProfileScreen() {
   const [exporting, setExporting] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  // Restore the locally stored profile photo (device-only, never uploaded).
+  useEffect(() => {
+    AsyncStorage.getItem(PROFILE_PHOTO_KEY)
+      .then((uri) => { if (uri) setProfileImage(uri); })
+      .catch(() => {});
+  }, []);
+
+  // Auth account status: a device_*@glucolens.app email means the silent
+  // per-device account; any other email means the user secured it.
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
+  const accountSecured = !!accountEmail && !DEVICE_EMAIL_RE.test(accountEmail);
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (!cancelled) setAccountEmail(data?.user?.email ?? null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // reminders query removed — reminders now has its own tab
 
@@ -417,17 +443,30 @@ export default function ProfileScreen() {
   const { data: goals } = trpc.profile.goals.useQuery();
 
   const handleSignOut = () => {
-    Alert.alert("Sign out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign out",
-        style: "destructive",
-        onPress: async () => {
-          await supabase.auth.signOut();
-          // AuthGuard in _layout.tsx will redirect to sign-in
+    Alert.alert(
+      "Sign out",
+      accountSecured
+        ? "Your account is secured with your email, so signing out is safe — you can sign back in anytime to get your data back."
+        : "Signing out will disconnect this device's data. Your logs stay on the server, but this device will start with a fresh account next time.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign out",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Explicit sign-out: forget the device account credentials too.
+              await clearStoredCredentials();
+              await supabase.auth.signOut();
+            } catch {}
+            await profileStore.clear().catch(() => {});
+            await retailerStore.clear().catch(() => {});
+            queryClient.clear();
+            router.replace("/");
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   const handleSaveGoals = async (dailyCalories: number, maxCarbs: number, maxSugar: number) => {
@@ -454,16 +493,7 @@ export default function ProfileScreen() {
         return;
       }
       const path = (FileSystem.cacheDirectory ?? "") + "glucolens_food_log.csv";
-      // SDK 54: use File and Blob API instead of deprecated writeAsStringAsync
-      try {
-        await FileSystem.writeAsStringAsync(path, csvText);
-      } catch {
-        // Fallback for SDK 54+ where writeAsStringAsync is removed
-        const { StorageAccessFramework } = FileSystem;
-        // Write via base64 encoding as fallback
-        const base64 = btoa(unescape(encodeURIComponent(csvText)));
-        await FileSystem.writeAsStringAsync(path, base64, { encoding: FileSystem.EncodingType.Base64 });
-      }
+      await FileSystem.writeAsStringAsync(path, csvText);
       await Sharing.shareAsync(path, { mimeType: "text/csv", dialogTitle: "Export Food Log CSV" });
     } catch (e: any) {
       Alert.alert("Export failed", e.message);
@@ -542,9 +572,17 @@ export default function ProfileScreen() {
   }, [profile?.allergies, profile?.medication]);
 
   const handleSaveHealth = () => {
-    updateProfileMutation.mutate({ allergies, medication } as any);
-    setHealthDirty(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    updateProfileMutation.mutate(
+      { allergies, medication },
+      {
+        onSuccess: () => {
+          setHealthDirty(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        },
+        // On error: keep the dirty state (Save button stays visible).
+        // The mutation's default onError already alerts the failure.
+      }
+    );
   };
 
   const diabetesLabel = DIABETES_OPTIONS.find((o) => o.key === profile?.diabetesType)?.label ?? "Not set";
@@ -596,13 +634,14 @@ export default function ProfileScreen() {
           <Pressable
             onPress={async () => {
               const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ["images"],
                 quality: 0.7,
                 allowsEditing: true,
                 aspect: [1, 1],
               });
               if (!result.canceled && result.assets[0]) {
                 setProfileImage(result.assets[0].uri);
+                AsyncStorage.setItem(PROFILE_PHOTO_KEY, result.assets[0].uri).catch(() => {});
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               }
             }}
@@ -617,11 +656,11 @@ export default function ProfileScreen() {
               overflow: "hidden",
             }}>
               {profileImage ? (
-                <View style={{ width: 80, height: 80 }}>
-                  <View style={{ width: 80, height: 80, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ fontSize: 28, fontWeight: "800", color: "#fff" }}>{initials}</Text>
-                  </View>
-                </View>
+                <Image
+                  source={{ uri: profileImage }}
+                  style={{ width: 80, height: 80 }}
+                  resizeMode="cover"
+                />
               ) : (
                 <Text style={{ fontSize: 28, fontWeight: "800", color: colors.primary }}>{initials}</Text>
               )}
@@ -720,6 +759,12 @@ export default function ProfileScreen() {
             label="Glucose & Weight Log"
             value="Track your blood sugar and weight"
             onPress={() => router.push("/health-log")}
+          />
+          <SettingsRow
+            icon={<AlertTriangle size={16} color={colors.risky} />}
+            label="Emergency & Medical ID"
+            value="Emergency number, medical info, warning signs"
+            onPress={() => router.push("/emergency")}
           />
 
           {/* ── Shopping ── */}
@@ -839,8 +884,14 @@ export default function ProfileScreen() {
             }
           />
 
-          {/* ── Sign out ── */}
+          {/* ── Account ── */}
           <SectionHeader title="Account" />
+          <SettingsRow
+            icon={<ShieldCheck size={16} color={colors.primary} />}
+            label="Account & Sign In"
+            value={accountSecured ? accountEmail! : "Secure your account with an email"}
+            onPress={() => router.push("/account")}
+          />
           <SettingsRow
             icon={<LogOut size={16} color={colors.risky} />}
             label="Sign Out"

@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 dist/
+dist-smoke/
 build/
 .expo/
 .DS_Store
@@ -13,3 +14,4 @@ ios/
 *.keystore
 *.jks
 *.log
+.claude/worktrees/

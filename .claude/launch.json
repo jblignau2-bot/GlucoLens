@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "glucolens-web",
+      "cwd": "glucolens-mobile",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "set PATH=C:\\Program Files\\nodejs;%PATH% && npx expo start --web --offline --clear --port 8081"],
+      "port": 8081
+    }
+  ]
+}

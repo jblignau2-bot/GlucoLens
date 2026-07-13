@@ -1,11 +1,43 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "../trpc";
 import { supabase } from "../supabase";
 import { openai } from "../openai";
+import { internalError, aiFailure } from "../lib/errors";
+import { countrySchema } from "../lib/validation";
+
+// ─── AI output schema ────────────────────────────────────────────────────────
+const shoppingListSchema = z.object({
+  currency: z.coerce.string().default(""),
+  stores: z.array(z.coerce.string()).min(1),
+  categories: z
+    .array(z.object({
+      name: z.coerce.string(),
+      items: z
+        .array(z.object({
+          name: z.coerce.string(),
+          quantity: z.coerce.string().default(""),
+          unit: z.coerce.string().default(""),
+          prices: z.record(z.coerce.number()).default({}),
+        }).passthrough())
+        .default([]),
+    }).passthrough())
+    .min(1),
+  byDay: z
+    .array(z.object({
+      day: z.coerce.string(),
+      items: z.array(z.coerce.string()).default([]),
+    }).passthrough())
+    .default([]),
+  totalByStore: z.record(z.coerce.number()).default({}),
+  totalItems: z.coerce.number().optional(),
+  diabetesTip: z.coerce.string().default(""),
+  cheapestStore: z.coerce.string().default(""),
+}).passthrough();
 
 export const shoppingListRouter = router({
   getCurrent: protectedProcedure
-    .input(z.object({ mealPlanId: z.number().optional() }))
+    .input(z.object({ mealPlanId: z.coerce.number().int().optional() }))
     .query(async ({ ctx, input }) => {
       let query = supabase
         .from("shopping_lists")
@@ -18,7 +50,7 @@ export const shoppingListRouter = router({
         query = query.eq("meal_plan_id", input.mealPlanId);
       }
 
-      const { data } = await query.single();
+      const { data } = await query.maybeSingle();
       if (!data) return null;
       return {
         id: data.id,
@@ -31,9 +63,9 @@ export const shoppingListRouter = router({
   generate: protectedProcedure
     .input(
       z.object({
-        mealPlanId: z.string(),
-        planJson: z.string(),
-        country: z.string().optional(),
+        mealPlanId: z.coerce.number().int(),
+        planJson: z.string().max(20000),
+        country: countrySchema.optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -106,7 +138,7 @@ IMPORTANT:
         });
 
         const content = response.choices[0]?.message?.content;
-        if (!content) throw new Error("AI returned no shopping list. Please try again.");
+        if (!content) throw new Error("empty completion");
         let clean = content
           .replace(/^\uFEFF/, "")
           .replace(/```json\n?/g, "")
@@ -117,15 +149,12 @@ IMPORTANT:
         if (firstBrace !== -1 && lastBrace > firstBrace) {
           clean = clean.slice(firstBrace, lastBrace + 1);
         }
-        listData = JSON.parse(clean);
-        if (!listData?.stores || !listData?.categories) {
-          throw new Error("AI returned an incomplete shopping list. Please try again.");
-        }
+        const parsed = shoppingListSchema.safeParse(JSON.parse(clean));
+        if (!parsed.success) throw new Error(parsed.error.message);
+        listData = parsed.data;
       } catch (err: any) {
-        console.error("Shopping list AI/parse error:", err?.message ?? err);
-        throw new Error(
-          "Failed to generate shopping list. Please try again."
-        );
+        if (err instanceof TRPCError) throw err;
+        aiFailure("shoppingList.generate", err);
       }
 
       // Delete any existing shopping list for this meal plan first
@@ -148,10 +177,7 @@ IMPORTANT:
         .select()
         .single();
 
-      if (error) {
-        console.error("Shopping list Supabase error:", error.message);
-        throw new Error(error.message);
-      }
+      if (error) internalError("shoppingList.generate", error);
 
       return {
         id: data.id,

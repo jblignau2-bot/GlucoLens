@@ -1,0 +1,14 @@
+{
+  "name": "glucolens",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "glucolens-mobile",
+    "glucolens-api"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "web": "npm run start --workspace glucolens-mobile -- --web --offline",
+    "api": "npm run dev --workspace glucolens-api"
+  }
+}

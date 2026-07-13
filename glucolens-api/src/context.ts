@@ -8,8 +8,14 @@ export async function createContext({ req }: CreateExpressContextOptions) {
 
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.slice(7);
-    const { data } = await supabase.auth.getUser(token);
-    userId = data.user?.id ?? null;
+    try {
+      const { data } = await supabase.auth.getUser(token);
+      userId = data.user?.id ?? null;
+    } catch (err) {
+      // Auth lookup failed (network, malformed token, etc.) — treat as unauthenticated
+      console.error("[auth] getUser failed:", err instanceof Error ? err.message : err);
+      userId = null;
+    }
   }
 
   return { userId };

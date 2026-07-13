@@ -15,23 +15,25 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Toast from "react-native-toast-message";
+import { trpc } from "@/lib/trpc";
 import { colors, radius } from "@/constants/tokens";
 import {
   ArrowLeft,
   Camera,
   TrendingUp,
   TrendingDown,
-  Minus,
   Ruler,
   Calendar,
   Sparkles,
+  ChevronRight,
 } from "lucide-react-native";
-import { format, startOfWeek, addWeeks } from "date-fns";
+import { format, startOfWeek, addWeeks, getISOWeek, parseISO } from "date-fns";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -42,14 +44,6 @@ interface Measurements {
   hips: string;
   thighs: string;
   calves: string;
-}
-
-interface WeekData {
-  weekLabel: string;
-  weekStart: string;
-  measurements: Measurements;
-  photos: { front: boolean; side: boolean; back: boolean };
-  saved: boolean;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -132,38 +126,16 @@ function MeasurementRow({ label, value, onChange, previousValue }: {
   );
 }
 
-// ─── Photo Slot ─────────────────────────────────────────────────────────────
-
-function PhotoSlot({ label, taken, onPress }: { label: string; taken: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flex: 1,
-        aspectRatio: 0.75,
-        backgroundColor: taken ? colors.primaryLight : colors.card,
-        borderRadius: radius.lg,
-        borderWidth: 1,
-        borderColor: taken ? colors.primary : colors.border,
-        borderStyle: taken ? "solid" : "dashed",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-        opacity: pressed ? 0.8 : 1,
-      })}
-    >
-      <Camera size={24} color={taken ? colors.primary : colors.textSecondary} />
-      <Text style={{ fontSize: 11, fontWeight: "600", color: taken ? colors.primary : colors.textSecondary }}>{label}</Text>
-      {taken && (
-        <View style={{ backgroundColor: colors.primary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
-          <Text style={{ fontSize: 9, fontWeight: "700", color: "#fff" }}>DONE</Text>
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
 // ─── Main Screen ────────────────────────────────────────────────────────────
+
+const MEASUREMENT_FIELDS: { key: keyof Measurements; apiKey: string; label: string }[] = [
+  { key: "arms", apiKey: "armsCm", label: "Arms" },
+  { key: "chest", apiKey: "chestCm", label: "Chest" },
+  { key: "stomach", apiKey: "stomachCm", label: "Stomach" },
+  { key: "hips", apiKey: "hipsCm", label: "Hips" },
+  { key: "thighs", apiKey: "thighsCm", label: "Thighs" },
+  { key: "calves", apiKey: "calvesCm", label: "Calves" },
+];
 
 export default function ProgressScreen() {
   const insets = useSafeAreaInsets();
@@ -173,20 +145,62 @@ export default function ProgressScreen() {
   const [measurements, setMeasurements] = useState<Measurements>({
     arms: "", chest: "", stomach: "", hips: "", thighs: "", calves: "",
   });
-  const [photos, setPhotos] = useState({ front: false, side: false, back: false });
+
+  // Calendar ISO week number for the selected week tab (API stores by week 1–52).
+  const weekNum = Math.min(Math.max(getISOWeek(parseISO(weeks[activeWeek].start)), 1), 52);
+  const prevWeekNum = Math.min(Math.max(getISOWeek(parseISO(weeks[Math.max(activeWeek - 1, 0)].start)), 1), 52);
+
+  const { data: weekData } = trpc.bodyMeasurements.getWeek.useQuery({ week: weekNum });
+  const { data: prevWeekData } = trpc.bodyMeasurements.getWeek.useQuery(
+    { week: prevWeekNum },
+    { enabled: activeWeek > 0 }
+  );
+
+  // Prefill the inputs from the saved measurements for the selected week.
+  useEffect(() => {
+    const next: Measurements = { arms: "", chest: "", stomach: "", hips: "", thighs: "", calves: "" };
+    if (weekData) {
+      MEASUREMENT_FIELDS.forEach(({ key, apiKey }) => {
+        const v = (weekData as any)[apiKey];
+        next[key] = v != null ? String(v) : "";
+      });
+    }
+    setMeasurements(next);
+  }, [weekData, weekNum]);
+
+  const previousValueFor = (apiKey: string): string | undefined => {
+    if (activeWeek === 0 || !prevWeekData) return undefined;
+    const v = (prevWeekData as any)[apiKey];
+    return v != null ? String(v) : undefined;
+  };
+
+  const saveMutation = trpc.bodyMeasurements.upsertWeek.useMutation({
+    onSuccess: () => {
+      Toast.show({ type: "success", text1: "Saved", text2: "Measurements recorded for this week." });
+    },
+    onError: (e) => {
+      Toast.show({ type: "error", text1: "Save failed", text2: e.message });
+    },
+  });
 
   const updateMeasurement = (key: keyof Measurements, value: string) => {
     setMeasurements((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSave = () => {
-    Alert.alert("Saved", "Your progress has been recorded for this week.");
-  };
-
-  const handlePhoto = (type: "front" | "side" | "back") => {
-    // In production, this would open the camera
-    setPhotos((prev) => ({ ...prev, [type]: true }));
-    Alert.alert("Camera", `Take your ${type} photo. (Camera integration coming soon)`);
+    const num = (v: string) => {
+      const n = parseFloat(v);
+      return isNaN(n) ? null : n;
+    };
+    saveMutation.mutate({
+      week: weekNum,
+      armsCm: num(measurements.arms),
+      chestCm: num(measurements.chest),
+      stomachCm: num(measurements.stomach),
+      hipsCm: num(measurements.hips),
+      thighsCm: num(measurements.thighs),
+      calvesCm: num(measurements.calves),
+    });
   };
 
   return (
@@ -239,14 +253,40 @@ export default function ProgressScreen() {
           </View>
         </ScrollView>
 
-        {/* Progress Photos */}
+        {/* Progress Photos — managed on the My Progress photos screen */}
         <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
           <Text style={{ fontSize: 16, fontWeight: "700", color: colors.textPrimary, marginBottom: 12 }}>Weekly Photos</Text>
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <PhotoSlot label="Front" taken={photos.front} onPress={() => handlePhoto("front")} />
-            <PhotoSlot label="Side" taken={photos.side} onPress={() => handlePhoto("side")} />
-            <PhotoSlot label="Back" taken={photos.back} onPress={() => handlePhoto("back")} />
-          </View>
+          <Pressable
+            onPress={() => router.push("/goals" as any)}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+              backgroundColor: colors.card,
+              borderRadius: radius.lg,
+              borderWidth: 1,
+              borderColor: colors.border,
+              padding: 14,
+              opacity: pressed ? 0.8 : 1,
+            })}
+          >
+            <View style={{
+              width: 40, height: 40, borderRadius: 12,
+              backgroundColor: colors.primaryLight,
+              alignItems: "center", justifyContent: "center",
+            }}>
+              <Camera size={18} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: "700", color: colors.textPrimary }}>
+                Progress Photos
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 1 }}>
+                Take front, side and back photos each week
+              </Text>
+            </View>
+            <ChevronRight size={16} color={colors.textSecondary} />
+          </Pressable>
         </View>
 
         {/* Body Measurements */}
@@ -262,12 +302,15 @@ export default function ProgressScreen() {
             borderWidth: 1,
             borderColor: colors.border,
           }}>
-            <MeasurementRow label="Arms" value={measurements.arms} onChange={(v) => updateMeasurement("arms", v)} />
-            <MeasurementRow label="Chest" value={measurements.chest} onChange={(v) => updateMeasurement("chest", v)} />
-            <MeasurementRow label="Stomach" value={measurements.stomach} onChange={(v) => updateMeasurement("stomach", v)} />
-            <MeasurementRow label="Hips" value={measurements.hips} onChange={(v) => updateMeasurement("hips", v)} />
-            <MeasurementRow label="Thighs" value={measurements.thighs} onChange={(v) => updateMeasurement("thighs", v)} />
-            <MeasurementRow label="Calves" value={measurements.calves} onChange={(v) => updateMeasurement("calves", v)} previousValue={undefined} />
+            {MEASUREMENT_FIELDS.map(({ key, apiKey, label }) => (
+              <MeasurementRow
+                key={key}
+                label={label}
+                value={measurements[key]}
+                onChange={(v) => updateMeasurement(key, v)}
+                previousValue={previousValueFor(apiKey)}
+              />
+            ))}
           </View>
         </View>
 
@@ -275,15 +318,20 @@ export default function ProgressScreen() {
         <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
           <Pressable
             onPress={handleSave}
+            disabled={saveMutation.isPending}
             style={({ pressed }) => ({
               backgroundColor: colors.primary,
               borderRadius: 16,
               paddingVertical: 16,
               alignItems: "center",
-              opacity: pressed ? 0.8 : 1,
+              opacity: pressed || saveMutation.isPending ? 0.8 : 1,
             })}
           >
-            <Text style={{ fontSize: 16, fontWeight: "700", color: "#0b1120" }}>Save This Week</Text>
+            {saveMutation.isPending ? (
+              <ActivityIndicator color="#0b1120" />
+            ) : (
+              <Text style={{ fontSize: 16, fontWeight: "700", color: "#0b1120" }}>Save This Week</Text>
+            )}
           </Pressable>
         </View>
 

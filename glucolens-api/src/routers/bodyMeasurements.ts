@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { supabase } from "../supabase";
+import { internalError } from "../lib/errors";
 
 const measurementSchema = z.object({
   week: z.number().int().min(1).max(52),
@@ -35,7 +36,7 @@ export const bodyMeasurementsRouter = router({
       .select("*")
       .eq("user_id", ctx.userId)
       .order("week", { ascending: true });
-    if (error) throw new Error(error.message);
+    if (error) internalError("bodyMeasurements.list", error);
     return (data || []).map(mapRow);
   }),
 
@@ -48,7 +49,7 @@ export const bodyMeasurementsRouter = router({
         .eq("user_id", ctx.userId)
         .eq("week", input.week)
         .maybeSingle();
-      if (error) throw new Error(error.message);
+      if (error) internalError("bodyMeasurements.getWeek", error);
       return data ? mapRow(data) : null;
     }),
 
@@ -72,7 +73,7 @@ export const bodyMeasurementsRouter = router({
         .upsert(row, { onConflict: "user_id,week" })
         .select()
         .single();
-      if (error) throw new Error(error.message);
+      if (error) internalError("bodyMeasurements.upsertWeek", error);
       return mapRow(data);
     }),
 
@@ -84,7 +85,7 @@ export const bodyMeasurementsRouter = router({
         .delete()
         .eq("user_id", ctx.userId)
         .eq("week", input.week);
-      if (error) throw new Error(error.message);
+      if (error) internalError("bodyMeasurements.delete", error);
       return { ok: true };
     }),
 });

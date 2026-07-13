@@ -57,6 +57,7 @@ import {
   Share2,
 } from "lucide-react-native";
 import { format, startOfWeek, addDays, parseISO } from "date-fns";
+import Toast from "react-native-toast-message";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -284,7 +285,7 @@ function GeneratingOverlay({ visible }: { visible: boolean }) {
         progressAnim.stopAnimation();
       };
     }
-  }, [visible]);
+  }, [visible, progressAnim]);
 
   if (!visible) return null;
 
@@ -393,7 +394,7 @@ function PulsingDot({ delay }: { delay: number }) {
     );
     loop.start();
     return () => loop.stop();
-  }, []);
+  }, [anim, delay]);
 
   return (
     <RNAnimated.View
@@ -900,7 +901,11 @@ function ShoppingListTab({
   const toggle = (name: string) => {
     setChecked((prev) => {
       const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
       return next;
     });
     Haptics.selectionAsync();
@@ -1241,10 +1246,16 @@ function ShoppingListTab({
 
 function MealReminderToggle() {
   const { data: reminders, refetch } = trpc.reminders.list.useQuery();
-  const addMutation = trpc.reminders.add.useMutation({ onSuccess: () => refetch() });
-  const toggleMutation = trpc.reminders.toggle.useMutation({ onSuccess: () => refetch() });
-  const deleteMutation = trpc.reminders.delete.useMutation({ onSuccess: () => refetch() });
-
+  const addMutation = trpc.reminders.add.useMutation({
+    onSuccess: () => refetch(),
+    onError: (e) =>
+      Toast.show({ type: "error", text1: "Couldn't add reminder", text2: e.message }),
+  });
+  const toggleMutation = trpc.reminders.toggle.useMutation({
+    onSuccess: () => refetch(),
+    onError: (e) =>
+      Toast.show({ type: "error", text1: "Couldn't update reminder", text2: e.message }),
+  });
   const [showModal, setShowModal] = useState(false);
   const [reminderTime, setReminderTime] = useState("12:00");
   const [reminderLabel, setReminderLabel] = useState("Meal Reminder");
@@ -1261,7 +1272,7 @@ function MealReminderToggle() {
     // Toggle all meal reminders
     Haptics.selectionAsync();
     mealReminders.forEach((r: any) => {
-      toggleMutation.mutate({ id: r.id, enabled: !hasActive });
+      toggleMutation.mutate({ id: Number(r.id), enabled: !hasActive });
     });
   };
 
@@ -1523,18 +1534,19 @@ export default function PlannerScreen() {
     });
   };
 
+  // The API has no clear/delete procedure for meal plans, so be honest:
+  // this immediately regenerates the plan with AI (replacing the current one).
   const handleReset = () => {
     Alert.alert(
-      "Reset Meal Plan",
-      "This will clear your current meal plan and shopping list. You can generate a new one afterwards.",
+      "Regenerate Meal Plan",
+      "This will immediately replace your current plan with a newly AI-generated one. This uses AI and may take a moment.",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Reset",
+          text: "Regenerate now",
           style: "destructive",
           onPress: () => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-            // Generate a fresh plan immediately
             handleGenerate();
           },
         },
@@ -1546,7 +1558,7 @@ export default function PlannerScreen() {
     if (!mealPlan) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     shoppingMutation.mutate({
-      mealPlanId: String(mealPlan.id),
+      mealPlanId: Number(mealPlan.id),
       planJson: mealPlan.planJson,
       country: profile?.country,
     });

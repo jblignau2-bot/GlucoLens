@@ -28,6 +28,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState, useEffect, useRef } from "react";
+import Toast from "react-native-toast-message";
 import { trpc } from "@/lib/trpc";
 import { useAnalysisStore } from "@/stores/analysisStore";
 import { useProfileStore } from "@/stores/profileStore";
@@ -177,13 +178,18 @@ export default function ResultsScreen() {
   const adj = (v: number) => Math.round(v * portionMultiplier * 10) / 10;
 
   const [splitCount, setSplitCount] = useState(0);
+  // Saved server log entries with their base (1×) nutrition, so portion
+  // changes made after saving can be written back via food.update.
+  const savedEntriesRef = useRef<{ id: number; base: Record<string, number> }[]>([]);
+  const savePendingRef = useRef(false);
 
   const logMealMutation = trpc.food.log.useMutation({
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    onError: (e) => Alert.alert("Couldn't save", e.message),
   });
+
+  const updateLogMutation = trpc.food.update.useMutation();
 
   // Build a single log payload from result
   function buildLogPayload(res: any) {
@@ -211,7 +217,9 @@ export default function ResultsScreen() {
     } as any;
   }
 
-  // Build individual log payloads from itemBreakdown entries
+  // Build individual log payloads from itemBreakdown entries.
+  // Ratings come from the AI (per-item if provided, otherwise the meal-level
+  // AI rating) — no client-side heuristic overrides.
   function buildSplitPayloads(res: any) {
     const items = res.itemBreakdown ?? [];
     if (items.length <= 1) return null; // nothing to split
@@ -226,8 +234,12 @@ export default function ResultsScreen() {
       const gi = item.glycemicIndex ?? res.glycemicIndex ?? 0;
       // Rough GL estimate per item
       const gl = Math.round(carbs * gi / 100);
-      // Rating heuristic per item
-      const rating = sugar > 15 || carbs > 45 ? "risky" : sugar > 8 || carbs > 25 ? "moderate" : "safe";
+      // Trust the AI's ratings; fall back to the meal-level rating when the
+      // item carries none of its own.
+      const rating1 = item.ratingType1 ?? item.rating ?? res.ratingType1 ?? "moderate";
+      const rating2 = item.ratingType2 ?? item.rating ?? res.ratingType2 ?? "moderate";
+      const reason1 = item.reasonType1 ?? item.note ?? res.reasonType1 ?? "";
+      const reason2 = item.reasonType2 ?? item.note ?? res.reasonType2 ?? "";
 
       return {
         mealName: item.name ?? item.food ?? "Unknown item",
@@ -243,10 +255,10 @@ export default function ResultsScreen() {
           fiber_g: Math.round(fib * 10) / 10,
         },
         diabetesRating: {
-          type1: { rating, reason: `${Math.round(carbs)}g carbs — plan insulin accordingly.` },
-          type2: { rating, reason: sugar > 15 ? `High sugar (${Math.round(sugar)}g).` : `${Math.round(sugar)}g sugar per serving.` },
+          type1: { rating: rating1, reason: reason1 },
+          type2: { rating: rating2, reason: reason2 },
         },
-        whyRisky: sugar > 15 ? [`High sugar: ${Math.round(sugar)}g`] : [],
+        whyRisky: res.whyRisky ?? [],
         healthierAlternatives: res.healthierAlternatives ?? [],
         foodsToAvoid: res.foodsToAvoid ?? [],
         itemBreakdown: [item],
@@ -254,32 +266,115 @@ export default function ResultsScreen() {
     });
   }
 
-  // Auto-save new scans — split multi-item meals into separate logs
-  useEffect(() => {
-    if (result && !params.logId && !autoSavedRef.current && !saved && !logMealMutation.isPending) {
-      autoSavedRef.current = true;
+  // Extract the base nutrition numbers of a payload (for later portion updates)
+  function baseNutrition(payload: any): Record<string, number> {
+    const n = payload.nutrition;
+    return {
+      calories: n.calories,
+      totalSugar: n.totalSugar_g,
+      totalCarbs: n.totalCarbs_g,
+      glycemicLoad: n.glycemicLoad,
+      protein: n.protein_g,
+      fat: n.fat_g,
+      fiber: n.fiber_g,
+    };
+  }
 
-      const splitPayloads = buildSplitPayloads(result);
-      if (splitPayloads && splitPayloads.length > 1) {
-        // Log each item separately
-        setSplitCount(splitPayloads.length);
-        let completed = 0;
-        splitPayloads.forEach((payload: any) => {
-          logMealMutation.mutate(payload, {
-            onSuccess: () => {
-              completed++;
-              if (completed === splitPayloads.length) setSaved(true);
-            },
-          });
+  // Save the meal (used for auto-save on mount AND the manual button).
+  // Only marks the meal as saved on server-confirmed success, so the manual
+  // "Save to Log" button still works when auto-save failed.
+  function persistLog(res: any, { silent }: { silent: boolean }) {
+    if (savePendingRef.current || autoSavedRef.current) return;
+    savePendingRef.current = true;
+
+    const splitPayloads = buildSplitPayloads(res);
+    const payloads: any[] = splitPayloads && splitPayloads.length > 1
+      ? splitPayloads
+      : [buildLogPayload(res)];
+
+    if (payloads.length > 1) setSplitCount(payloads.length);
+
+    let done = 0;
+    let failed = 0;
+    const entries: { id: number; base: Record<string, number> }[] = [];
+
+    payloads.forEach((payload: any) => {
+      logMealMutation.mutate(payload, {
+        onSuccess: (data: any) => {
+          if (data?.id != null) entries.push({ id: Number(data.id), base: baseNutrition(payload) });
+          done++;
+          finish();
+        },
+        onError: (e) => {
+          failed++;
+          finish(e.message);
+        },
+      });
+    });
+
+    function finish(errMsg?: string) {
+      if (done + failed < payloads.length) return;
+      savePendingRef.current = false;
+      if (failed === 0) {
+        autoSavedRef.current = true;
+        savedEntriesRef.current = entries;
+        setSaved(true);
+        // If the user already adjusted the portion before this save completed,
+        // sync the saved values to the current multiplier immediately.
+        if (portionMultiplier !== 1) applyPortionToSaved(portionMultiplier);
+      } else if (silent) {
+        Toast.show({
+          type: "error",
+          text1: "Auto-save failed",
+          text2: "Tap \"Save to Log\" to try again.",
         });
       } else {
-        // Single item — log as combined meal
-        logMealMutation.mutate(buildLogPayload(result), {
-          onSuccess: () => setSaved(true),
-        });
+        Alert.alert("Couldn't save", errMsg ?? "Please try again.");
       }
     }
-  }, [result, params.logId, saved, logMealMutation.isPending]);
+  }
+
+  // Auto-save new scans — split multi-item meals into separate logs
+  useEffect(() => {
+    if (result && !params.logId && !autoSavedRef.current && !saved) {
+      persistLog(result, { silent: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result, params.logId, saved]);
+
+  // Write portion-adjusted values back to the saved log entries (food.update).
+  function applyPortionToSaved(m: number) {
+    const scale = (v: number) => Math.round(v * m * 10) / 10;
+    savedEntriesRef.current.forEach(({ id, base }) => {
+      updateLogMutation.mutate(
+        {
+          id,
+          calories: Math.round(base.calories * m),
+          totalSugar: scale(base.totalSugar),
+          totalCarbs: scale(base.totalCarbs),
+          glycemicLoad: scale(base.glycemicLoad),
+          protein: scale(base.protein),
+          fat: scale(base.fat),
+          fiber: scale(base.fiber),
+        },
+        {
+          onError: (e) =>
+            Toast.show({
+              type: "error",
+              text1: "Couldn't update portion",
+              text2: e.message,
+            }),
+        }
+      );
+    });
+  }
+
+  // When the portion multiplier changes AFTER the meal was saved, sync it.
+  useEffect(() => {
+    if (!saved || savedEntriesRef.current.length === 0) return;
+    applyPortionToSaved(portionMultiplier);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portionMultiplier]);
 
   const handleShare = async () => {
     if (!result) return;
@@ -312,9 +407,26 @@ export default function ResultsScreen() {
 
   if (!result) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={{ marginTop: 12, color: colors.textSecondary }}>Loading analysis…</Text>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: 32, gap: 14 }}>
+        <AlertTriangle size={36} color={colors.textSecondary} />
+        <Text style={{ fontSize: 17, fontWeight: "800", color: colors.textPrimary, textAlign: "center" }}>
+          No analysis to show
+        </Text>
+        <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: "center", lineHeight: 20 }}>
+          Scan a meal or pick one from your food log to see its analysis here.
+        </Text>
+        <Pressable
+          onPress={() => router.replace("/(tabs)")}
+          style={({ pressed }) => ({
+            backgroundColor: colors.primary,
+            paddingHorizontal: 28,
+            paddingVertical: 12,
+            borderRadius: radius.lg,
+            opacity: pressed ? 0.8 : 1,
+          })}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Go Back</Text>
+        </Pressable>
       </View>
     );
   }
@@ -523,25 +635,7 @@ export default function ResultsScreen() {
           {/* ── Save button (shown only if not yet saved) ── */}
           {!saved ? (
             <Pressable
-              onPress={() => {
-                if (!autoSavedRef.current) {
-                  autoSavedRef.current = true;
-                  const splitPayloads = buildSplitPayloads(result);
-                  if (splitPayloads && splitPayloads.length > 1) {
-                    setSplitCount(splitPayloads.length);
-                    let completed = 0;
-                    splitPayloads.forEach((payload: any) => {
-                      logMealMutation.mutate(payload, {
-                        onSuccess: () => { completed++; if (completed === splitPayloads.length) setSaved(true); },
-                      });
-                    });
-                  } else {
-                    logMealMutation.mutate(buildLogPayload(result), {
-                      onSuccess: () => setSaved(true),
-                    });
-                  }
-                }
-              }}
+              onPress={() => persistLog(result, { silent: false })}
               disabled={logMealMutation.isPending}
               style={({ pressed }) => ({
                 height: 54,

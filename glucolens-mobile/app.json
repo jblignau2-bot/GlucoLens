@@ -29,10 +29,7 @@
       "package": "com.glucolens.app",
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.VIBRATE",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.VIBRATE"
       ]
     },
     "web": {
@@ -53,7 +50,8 @@
         {
           "photosPermission": "GlucoLens accesses your photos to let you select meal images for analysis."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

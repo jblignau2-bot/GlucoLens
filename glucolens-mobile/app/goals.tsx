@@ -25,8 +25,6 @@ import {
   ArrowLeft,
   Camera,
   User,
-  ChevronRight,
-  Trash2,
   Trophy,
   Target,
 } from "lucide-react-native";
@@ -42,6 +40,10 @@ const ANGLE_LABELS: Record<string, string> = {
 
 const screenW = Dimensions.get("window").width;
 const photoSize = (screenW - 40 - 16) / 3; // 3 columns with gaps
+
+/** Prefer the signed storage URL; fall back to legacy base64 rows. */
+const photoUri = (p: { photoUrl?: string | null; photoBase64?: string | null }) =>
+  p.photoUrl ?? (p.photoBase64 ? `data:image/jpeg;base64,${p.photoBase64}` : undefined);
 
 export default function GoalsScreen() {
   const insets = useSafeAreaInsets();
@@ -81,7 +83,7 @@ export default function GoalsScreen() {
 
   const handlePickPhoto = async (week: number, angle: string) => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       quality: 0.6,
       base64: true,
       allowsEditing: true,
@@ -264,9 +266,9 @@ export default function GoalsScreen() {
                 >
                   {isUploading ? (
                     <ActivityIndicator color={colors.primary} />
-                  ) : photo ? (
+                  ) : photo && photoUri(photo) ? (
                     <Image
-                      source={{ uri: `data:image/jpeg;base64,${photo.photoBase64}` }}
+                      source={{ uri: photoUri(photo)! }}
                       style={{ width: "100%", height: "100%" }}
                       resizeMode="cover"
                     />
@@ -329,9 +331,9 @@ export default function GoalsScreen() {
                     alignItems: "center",
                     justifyContent: "center",
                   }}>
-                    {frontPhoto ? (
+                    {frontPhoto && photoUri(frontPhoto) ? (
                       <Image
-                        source={{ uri: `data:image/jpeg;base64,${frontPhoto.photoBase64}` }}
+                        source={{ uri: photoUri(frontPhoto)! }}
                         style={{ width: "100%", height: "100%" }}
                         resizeMode="cover"
                       />

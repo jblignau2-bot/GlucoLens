@@ -88,6 +88,13 @@ interface MealEntry {
   fiber?: number | null;
   ratingType1: string | null;
   ratingType2: string | null;
+  reasonType1?: string | null;
+  reasonType2?: string | null;
+  whyRisky?: any[];
+  healthierAlternatives?: any[];
+  foodsToAvoid?: any[];
+  identifiedFoods?: any[];
+  itemBreakdown?: any[];
   loggedAt: string;
 }
 
@@ -478,20 +485,20 @@ export default function FoodLogScreen() {
       calories: meal.calories ?? 0,
       totalSugar: meal.totalSugar ?? 0,
       totalCarbs: meal.totalCarbs ?? 0,
-      glycemicIndex: 0,
-      glycemicLoad: 0,
-      protein: 0,
-      fat: 0,
-      fiber: 0,
+      glycemicIndex: meal.glycemicIndex ?? 0,
+      glycemicLoad: meal.glycemicLoad ?? 0,
+      protein: meal.protein ?? 0,
+      fat: meal.fat ?? 0,
+      fiber: meal.fiber ?? 0,
       ratingType1: (meal.ratingType1 as any) ?? "moderate",
       ratingType2: (meal.ratingType2 as any) ?? "moderate",
-      reasonType1: "",
-      reasonType2: "",
-      whyRisky: [],
-      healthierAlternatives: [],
-      foodsToAvoid: [],
-      identifiedFoods: [],
-      itemBreakdown: [],
+      reasonType1: meal.reasonType1 ?? "",
+      reasonType2: meal.reasonType2 ?? "",
+      whyRisky: meal.whyRisky ?? [],
+      healthierAlternatives: meal.healthierAlternatives ?? [],
+      foodsToAvoid: meal.foodsToAvoid ?? [],
+      identifiedFoods: meal.identifiedFoods ?? [],
+      itemBreakdown: meal.itemBreakdown ?? [],
     });
     router.push({
       pathname: "/results",

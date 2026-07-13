@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -28,12 +27,51 @@ const QUICK_PROMPTS = [
   "Give me a low-carb snack idea",
 ];
 
+function getFriendlyChatError(message?: string) {
+  const text = message?.toLowerCase() ?? "";
+  if (
+    text.includes("network") ||
+    text.includes("fetch") ||
+    text.includes("transform response") ||
+    text.includes("failed to fetch")
+  ) {
+    return "I can't reach the GlucoBot service right now. Check the backend URL or try again once the API is online.";
+  }
+  return "I couldn't complete that answer just now. Please try again in a moment.";
+}
+
+function getMockBotAnswer(question: string, context?: string) {
+  const text = question.toLowerCase();
+  const contextText = context ? ` For ${context.toLowerCase()},` : "";
+
+  if (text.includes("meal plan")) {
+    return `${contextText || "For your meal plan,"} focus on steady carbs across the day: pair each carb serving with protein, add vegetables first, and keep a backup snack ready for long gaps between meals.`;
+  }
+
+  if (text.includes("spike") || text.includes("glucose")) {
+    return "To reduce a glucose spike, start with fiber or vegetables, add protein, keep the portion moderate, and take a short walk after eating if that is safe for you.";
+  }
+
+  if (text.includes("snack")) {
+    return "A steady snack idea: plain Greek yogurt with nuts, boiled eggs with cucumber, or hummus with vegetable sticks. Keep fruit portions smaller and pair them with protein.";
+  }
+
+  if (text.includes("eat")) {
+    return "A balanced next meal could be grilled chicken or beans, a generous non-starchy vegetable portion, and a measured low-GI carb like lentils, brown rice, or sweet potato.";
+  }
+
+  return "I would keep this practical: choose a protein, add high-fiber vegetables, measure the carb portion, and check how your body responds. This is mock mode, so no real AI/backend call was made.";
+}
+
 export default function CoachScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{ context?: string }>();
   const context = typeof params.context === "string" ? params.context : undefined;
+  const useMockBot =
+    __DEV__ && process.env.EXPO_PUBLIC_MOCK_BOT === "true";
   const [input, setInput] = useState("");
+  const [mockPending, setMockPending] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
       role: "bot",
@@ -43,11 +81,10 @@ export default function CoachScreen() {
     },
   ]);
 
-  const askMutation = trpc.chat.ask.useMutation({
-    onError: (error) => Alert.alert("GlucoBot error", error.message),
-  });
+  const askMutation = trpc.chat.ask.useMutation();
 
-  const canSend = input.trim().length > 0 && !askMutation.isPending;
+  const isPending = askMutation.isPending || mockPending;
+  const canSend = input.trim().length > 0 && !isPending;
 
   const contextLine = useMemo(() => {
     if (!context) return "Personal diabetes food coach";
@@ -56,14 +93,25 @@ export default function CoachScreen() {
 
   const send = async (text = input) => {
     const question = text.trim();
-    if (!question || askMutation.isPending) return;
+    if (!question || isPending) return;
     setInput("");
     setMessages((prev) => [...prev, { role: "user", text: question }]);
+
+    if (useMockBot) {
+      setMockPending(true);
+      setTimeout(() => {
+        setMessages((prev) => [...prev, { role: "bot", text: getMockBotAnswer(question, context) }]);
+        setMockPending(false);
+      }, 450);
+      return;
+    }
+
     try {
       const result = await askMutation.mutateAsync({ message: question, context });
       setMessages((prev) => [...prev, { role: "bot", text: result.answer }]);
-    } catch {
-      // handled by mutation onError
+    } catch (error) {
+      const message = error instanceof Error ? error.message : undefined;
+      setMessages((prev) => [...prev, { role: "bot", text: getFriendlyChatError(message) }]);
     }
   };
 
@@ -134,7 +182,7 @@ export default function CoachScreen() {
             </View>
           );
         })}
-        {askMutation.isPending && (
+        {isPending && (
           <View style={{ alignSelf: "flex-start", backgroundColor: colors.card, borderRadius: radius.lg, padding: 12, borderWidth: 1, borderColor: colors.border }}>
             <ActivityIndicator color={colors.primary} size="small" />
           </View>
@@ -147,7 +195,7 @@ export default function CoachScreen() {
             <Pressable
               key={prompt}
               onPress={() => send(prompt)}
-              disabled={askMutation.isPending}
+              disabled={isPending}
               style={({ pressed }) => ({
                 paddingHorizontal: 12,
                 paddingVertical: 8,
@@ -155,7 +203,7 @@ export default function CoachScreen() {
                 backgroundColor: colors.card,
                 borderWidth: 1,
                 borderColor: colors.border,
-                opacity: pressed || askMutation.isPending ? 0.7 : 1,
+                opacity: pressed || isPending ? 0.7 : 1,
               })}
             >
               <Text style={{ fontSize: 11, fontWeight: "700", color: colors.textSecondary }}>{prompt}</Text>

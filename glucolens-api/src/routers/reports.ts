@@ -4,21 +4,25 @@ import { supabase } from "../supabase";
 
 export const reportsRouter = router({
   monthly: protectedProcedure
-    .input(z.object({ month: z.string().optional() })) // YYYY-MM
+    .input(z.object({
+      month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Expected YYYY-MM").optional(),
+    }))
     .query(async ({ ctx, input }) => {
       const month = input.month ?? new Date().toISOString().slice(0, 7);
       const [year, mon] = month.split("-").map(Number);
       const from = `${month}-01`;
-      // Proper last day of month using Date rollover
-      const lastDay = new Date(year, mon, 0).getDate();
-      const to = `${month}-${String(lastDay).padStart(2, "0")}`;
+      // Exclusive upper bound at the start of the next month covers the whole month
+      const nextMonthStart =
+        mon === 12
+          ? `${year + 1}-01-01`
+          : `${year}-${String(mon + 1).padStart(2, "0")}-01`;
 
       const { data: logs } = await supabase
         .from("food_logs")
         .select("*")
         .eq("user_id", ctx.userId)
         .gte("logged_at", from)
-        .lte("logged_at", to);
+        .lt("logged_at", nextMonthStart);
 
       const rows = logs ?? [];
       const total = rows.length;

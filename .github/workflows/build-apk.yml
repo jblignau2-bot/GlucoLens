@@ -18,6 +18,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -28,17 +30,12 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install API dependencies
-        working-directory: glucolens-api
+      - name: Install dependencies (workspaces)
         run: npm ci
 
       - name: Build API types
         working-directory: glucolens-api
         run: npm run build
-
-      - name: Install mobile dependencies
-        working-directory: glucolens-mobile
-        run: npm ci --legacy-peer-deps
 
       - name: Typecheck mobile
         working-directory: glucolens-mobile

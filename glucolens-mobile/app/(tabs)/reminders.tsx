@@ -32,6 +32,8 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  Phone,
+  ChevronRight,
 } from "lucide-react-native";
 
 // ─── Guide Data ─────────────────────────────────────────────────────────────
@@ -267,6 +269,33 @@ export default function GlucoseGuideScreen() {
           <Text style={{ fontSize: 11, fontWeight: "600", color: colors.primary, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>Glucose Guide</Text>
           <Text style={{ fontSize: 24, fontWeight: "800", color: colors.textPrimary }}>Learn & Understand</Text>
         </View>
+
+        {/* Emergency quick link */}
+        <Pressable
+          onPress={() => router.push("/emergency")}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            marginHorizontal: 20,
+            marginBottom: 16,
+            padding: 12,
+            backgroundColor: colors.riskyBg,
+            borderRadius: radius.lg,
+            borderWidth: 1,
+            borderColor: colors.risky,
+            opacity: pressed ? 0.8 : 1,
+          })}
+        >
+          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.risky, alignItems: "center", justifyContent: "center" }}>
+            <Phone size={15} color="#fff" strokeWidth={2.5} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.textPrimary }}>Emergency & Medical ID</Text>
+            <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>Emergency number, medical info, warning signs</Text>
+          </View>
+          <ChevronRight size={16} color={colors.textSecondary} />
+        </Pressable>
 
         {/* Category Selector */}
         <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 20, marginBottom: 20 }}>
